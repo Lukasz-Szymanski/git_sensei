@@ -127,6 +127,13 @@ def commit():
     if typer.confirm("Do you want to commit with this message?"):
         subprocess.run(["git", "commit", "-m", message], check=True)
         typer.secho("✅ Success!", fg=typer.colors.GREEN)
+
+        if typer.confirm("Do you want to push changes to remote?"):
+            try:
+                subprocess.run(["git", "push"], check=True)
+                typer.secho("✅ Pushed successfully!", fg=typer.colors.GREEN)
+            except subprocess.CalledProcessError:
+                typer.secho("❌ Push failed.", fg=typer.colors.RED)
     else:
         typer.secho("Aborted.", fg=typer.colors.YELLOW)
 
