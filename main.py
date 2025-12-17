@@ -12,8 +12,9 @@ CONVENTIONAL_REGEX = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|r
 
 # System prompt optimized for CLI pipes
 SYSTEM_PROMPT = (
-    "Analyze the git diff below. Generate a SINGLE Conventional Commit message. "
-    "Format: type(scope): description. No markdown. No explanations."
+    "Analyze the git diff provided via stdin. Generate a SINGLE Conventional Commit message. "
+    "Format: type(scope): description. "
+    "CRITICAL: Do NOT use any tools. Do NOT explain. Do NOT use markdown. Output ONLY the raw commit message."
 )
 
 def get_staged_diff() -> str:
@@ -39,15 +40,16 @@ def call_external_ai(diff_content: str) -> str:
     # We prioritize gemini-chat as mentioned by the mentor
     commands = [
         {"cmd": "gemini-chat", "args": ["--system", SYSTEM_PROMPT]},
-        {"cmd": "gemini", "args": ["--prompt", SYSTEM_PROMPT]}, # alternative name
+        {"cmd": "gemini", "args": [SYSTEM_PROMPT]}, # positional arg for gemini-cli
         {"cmd": "aicommits", "args": ["--generate"]}, # another popular tool
     ]
 
     for tool in commands:
-        if shutil.which(tool["cmd"]):
+        executable = shutil.which(tool["cmd"])
+        if executable:
             try:
                 # Use Pipe: echo "diff" | tool
-                full_cmd = [tool["cmd"]] + tool["args"]
+                full_cmd = [executable] + tool["args"]
                 process = subprocess.Popen(
                     full_cmd,
                     stdin=subprocess.PIPE,
