@@ -1,86 +1,85 @@
-# 🥋 Git-Sensei (Offline Edition)
+# 🥋 Git-Sensei
 
-> **Zero Latency. Zero Tokens. 100% Conventional Commits.**
+> **Smart Context. Professional Commits. Hybrid Engine.**
 >
-> An automated commit message generator that **doesn't use AI**, works instantly, and ensures your project history stays clean.
+> An automated commit message generator that leverages **Google Gemini CLI** for deep code analysis, with a blazing fast **Offline Fallback** when you are off the grid.
 
 ---
 
 ## 🧐 What is it?
 
-**Git-Sensei** is a Python-based CLI tool designed to eliminate "Commit Fatigue". Instead of manually typing lazy messages like `git commit -m "fix things"`, Sensei analyzes your changes (`git diff`) and uses a **Heuristic Logic Engine** to generate a perfectly formatted message following the **Conventional Commits** specification.
+**Git-Sensei** is a Python-based CLI tool designed to eliminate "Commit Fatigue".
+It reads your staged changes (`git diff`) and pipes them through an AI engine to understand *why* you made the changes, not just *what* changed.
 
-**The Key Difference:** This tool is 100% offline. It doesn't send your code to the cloud (Google/OpenAI), requires no API keys, and runs in milliseconds.
+**Hybrid Architecture:**
+1.  **Online (Primary):** Uses `gemini-cli` to generate human-like, context-aware descriptions.
+2.  **Offline (Backup):** Automatically switches to a Heuristic Logic Engine if no internet/AI is available.
 
 ## 🚀 Features
 
-- **⚡ Blazing Fast:** No network latency. Analysis is performed locally.
-- **🔒 Private:** Your code never leaves your machine.
-- **💰 Zero Cost:** No LLM token usage or subscriptions.
-- **📏 Standardization:** Enforces the `type(scope): description` format.
-  - Supported types: `feat`, `fix`, `docs`, `style`, `test`, `chore`.
+- **🧠 Context Aware:** Understands complex refactoring and generates detailed commit bodies.
+- **⚡ Blazing Fast Fallback:** Zero latency mode when AI is unreachable.
+- **🔒 Privacy First:** Your code is processed via your local CLI configuration.
+- **📏 Standardization:** Enforces **Conventional Commits** (`feat`, `fix`, `chore`, etc.).
 - **🛡️ Safety Net:** Nothing is committed without your explicit `[y/N]` confirmation.
-- **🔄 Automation:** Optionally executes `git push` after a successful commit.
 
-## 🧠 How it Works (Heuristic Engine)
+## 🛠️ Requirements
 
-Instead of a neural network, we use a smart logic script (`local_bridge.py`) that analyzes staged files:
-
-1.  **Type Detection:**
-    - Changes in `.py`, `.js`, `.go`, etc. → **`feat`**
-    - Changes in `.md`, `.txt` → **`docs`**
-    - Changes in `.css`, `.scss` → **`style`**
-    - Changes in `.gitignore`, `package.json` → **`chore`**
-    - Detection of keywords like "fix", "bug", or "error" in code → Forces **`fix`**
-2.  **Scope Determination:**
-    - Automatically extracts the name of the primary modified file (e.g., `main.py` → `main`).
-3.  **Description Generation:**
-    - Creates a template based on the action (e.g., "implement logic in main", "update docs in README").
-
-## 🛠️ Requirements & Installation
-
-You only need **Python 3.9+** and **Git**.
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/YourUsername/git_sensei.git
-    cd git_sensei
-    ```
-
-2.  **Install the lightweight CLI dependency:**
-    ```bash
-    pip install typer
-    ```
+1.  **Python 3.9+** & **Git**
+2.  **Gemini CLI** (optional, for AI features)
+    - Install via npm: `npm install -g @google/gemini-cli` (or similar provider)
 
 ## 💻 Usage
 
-1.  **Stage your changes:** (Sensei only sees what's in the staging area!)
+1.  **Stage your changes:**
     ```bash
     git add .
     ```
 
 2.  **Run the Sensei:**
     ```bash
-    python main.py
+    sensei
     ```
+    *(Assuming you added the script to your PATH)*
 
 3.  **Confirm:**
-    The program will display a proposal:
     ```text
-    Suggested Commit: feat(local_bridge): implement logic in local_bridge.py
+    Suggested: feat(auth): implement JWT token validation
+
+    [Body]
+    - added middleware for token extraction
+    - updated user model to store refresh tokens
     ```
-    - Type `y` and press Enter to commit.
-    - The program will also ask if you want to `git push`.
 
 ## 📂 Project Structure
 
 ```text
 git_sensei/
-├── main.py           # Main CLI interface (Typer-based)
-├── local_bridge.py   # Logic engine (Diff analysis, text generation)
-└── README.md         # Documentation
+├── main.py           # Core Logic & AI Pipe
+├── local_bridge.py   # Offline Heuristic Engine
+└── FUTURE_CLI_IDEAS.md # Roadmap
 ```
 
 ---
 
-_Built for productivity and clean code enthusiast._
+## 📜 Changelog
+
+<details>
+<summary><strong>Click to expand version history</strong></summary>
+
+### v0.2.0 (2025-12-17)
+*   **feat(core):** Integrated `gemini-cli` pipe for intelligent, context-aware commit messages.
+*   **style(prompt):** Configured AI to generate detailed body descriptions for complex logic changes (not just one-liners).
+*   **refactor(bridge):** Translated all internal logic and comments in `local_bridge.py` to English for better maintainability.
+*   **fix(win32):** Improved subprocess handling for Windows environments.
+*   **chore:** Moved `sensei.bat` outside the repo for cleaner project structure.
+
+### v0.1.0 (2025-12-09)
+*   **feat:** Initial release with Heuristic Logic Engine.
+*   **feat:** Basic `type(scope): description` formatting.
+
+</details>
+
+---
+
+_Built for productivity and clean code enthusiasts._
