@@ -22,7 +22,9 @@ SYSTEM_PROMPT = (
     "1. Always start with a clear header line.\n"
     "2. If the change implies logic modification, refactoring, or new features (regardless of file count), PROVIDE A DETAILED BODY.\n"
     "3. Analyze the actual code changes (diff hunks) to describe 'what' and 'why', not just 'where'.\n"
-    "4. CRITICAL: Do NOT use markdown code blocks (```). Output raw text only."
+    "4. CRITICAL: Do NOT use markdown code blocks (```). Output raw text only.\n"
+    "5. STYLE RULES: Use IMPERATIVE mood (e.g., 'add' not 'added'). Do NOT use first-person ('I', 'we'). Focus strictly on the code actions.\n"
+    "6. NO PREAMBLE: Start the response DIRECTLY with the commit type (e.g., 'feat: ...'). Do not output any 'I will...' or thinking process."
 )
 
 def get_staged_diff() -> str:
@@ -38,6 +40,17 @@ def get_staged_diff() -> str:
         capture_output=True, text=True, encoding='utf-8', errors='replace'
     )
     return result.stdout
+
+def clean_response(raw_output: str) -> str:
+    """
+    Removes any conversational filler or 'thinking' text before the actual commit message.
+    It looks for the first line that matches the Conventional Commits pattern.
+    """
+    match = re.search(CONVENTIONAL_REGEX, raw_output, re.MULTILINE)
+    if match:
+        # Return everything starting from the match
+        return raw_output[match.start():].strip()
+    return raw_output.strip()
 
 def call_external_ai(diff_content: str) -> str:
     """
@@ -69,7 +82,7 @@ def call_external_ai(diff_content: str) -> str:
                 stdout, stderr = process.communicate(input=diff_content)
                 
                 if process.returncode == 0 and stdout.strip():
-                    return stdout.strip()
+                    return clean_response(stdout)
             except Exception:
                 continue
     
