@@ -31,18 +31,25 @@ It reads your staged changes (`git diff`) and pipes them through an AI engine to
 
 ## 💻 Usage
 
-1.  **Stage your changes:**
-    ```bash
-    git add .
-    ```
+1. **Stage your changes:**
+   ```bash
+   git add .
+   ```
 
-2.  **Run the Sensei:**
-    ```bash
-    sensei
-    ```
-    *(Assuming you added the script to your PATH)*
+2. **Run the Sensei:**
 
-3.  **Confirm:**
+   **Option A: Direct Execution**
+   ```bash
+   python main.py
+   ```
+
+   **Option B: Global Command**
+   ```bash
+   sensei
+   ```
+   *(Requires adding the script to your `PATH` or creating an alias)*
+
+3. **Confirm:**
     ```text
     Suggested: feat(auth): implement JWT token validation
 
