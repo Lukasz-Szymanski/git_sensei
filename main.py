@@ -12,9 +12,14 @@ CONVENTIONAL_REGEX = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|r
 
 # System prompt optimized for CLI pipes
 SYSTEM_PROMPT = (
-    "Analyze the git diff provided via stdin. Generate a SINGLE Conventional Commit message. "
-    "Format: type(scope): description. "
-    "CRITICAL: Do NOT use any tools. Do NOT explain. Do NOT use markdown. Output ONLY the raw commit message."
+    "Analyze the git diff provided via stdin. Generate a High-Quality Conventional Commit message. "
+    "Rules:\n"
+    "1. Format: type(scope): summary\n"
+    "2. If multiple files/modules are changed, append a body with a bulleted list details:\n"
+    "   type(scope): summary\n\n"
+    "   - filename.py: specific change\n"
+    "   - other.js: specific change\n"
+    "3. CRITICAL: Do NOT use markdown code blocks (```). Output raw text only."
 )
 
 def get_staged_diff() -> str:
