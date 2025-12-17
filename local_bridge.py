@@ -4,26 +4,26 @@ import os
 
 def parse_diff(diff_content):
     """
-    Analizuje diff i zwraca listę zmienionych plików oraz wskazówki co do typu zmian.
+    Analyzes the diff and returns a list of modified files and hints about the type of changes.
     """
     files = []
     is_fix = False
     is_test = False
     
-    # Prosty parser diffa
-    # Szukamy linii: diff --git a/ścieżka/plik b/ścieżka/plik
+    # Simple diff parser
+    # Looking for lines: diff --git a/path/file b/path/file
     file_pattern = re.compile(r"diff --git a/(.*) b/(.*)")
     
     for line in diff_content.splitlines():
-        # Wykrywanie plików
+        # Detect files
         match = file_pattern.match(line)
         if match:
             files.append(match.group(1))
         
-        # Heurystyka dla treści (szukamy słów kluczowych w dodanych liniach)
+        # Heuristics for content (search for keywords in added lines)
         if line.startswith("+") and not line.startswith("+++"):
             content_lower = line.lower()
-            if "fix" in content_lower or "bug" in content_lower or "błąd" in content_lower:
+            if "fix" in content_lower or "bug" in content_lower or "error" in content_lower:
                 is_fix = True
             if "test" in content_lower:
                 is_test = True
@@ -31,17 +31,17 @@ def parse_diff(diff_content):
     return files, is_fix, is_test
 
 def determine_type(files, is_fix_content):
-    """Ustala typ commita na podstawie rozszerzeń plików."""
+    """Determines the commit type based on file extensions."""
     if not files:
         return "chore"
 
-    # Priorytety
+    # Priorities
     if is_fix_content:
         return "fix"
 
     extensions = [os.path.splitext(f)[1] for f in files]
     
-    # Mapowanie rozszerzeń na typy
+    # Map extensions to types
     if any(ext in ['.md', '.txt', '.rst'] for ext in extensions):
         return "docs"
     if any(ext in ['.css', '.scss', '.less', '.styl'] for ext in extensions):
@@ -63,12 +63,12 @@ def generate_message(diff_content):
 
     commit_type = determine_type(files, is_fix)
     
-    # Scope: nazwa głównego pliku (bez ścieżki i rozszerzenia)
+    # Scope: main file name (without path and extension)
     main_file = os.path.basename(files[0])
     scope = os.path.splitext(main_file)[0]
     
     if len(files) > 1:
-        scope = f"{scope}+" # Sygnalizacja, że zmieniono więcej plików
+        scope = f"{scope}+" # Signal that more than one file was changed
 
     # Description
     action = "fix" if commit_type == "fix" else "update"
@@ -86,9 +86,9 @@ def generate_message(diff_content):
     return f"{commit_type}({scope}): {description}"
 
 if __name__ == "__main__":
-    # Tryb nieinteraktywny: czytamy stdin, piszemy stdout
+    # Non-interactive mode: read from stdin, write to stdout
     try:
-        # Wymuszenie kodowania UTF-8 dla stdin/stdout
+        # Force UTF-8 encoding for stdin/stdout
         if sys.stdin.encoding.lower() != 'utf-8':
             sys.stdin.reconfigure(encoding='utf-8')
         if sys.stdout.encoding.lower() != 'utf-8':
@@ -96,12 +96,12 @@ if __name__ == "__main__":
             
         input_diff = sys.stdin.read()
         if not input_diff.strip():
-            # Fallback dla pustego wejścia
+            # Fallback for empty input
             print("chore: empty commit")
         else:
             message = generate_message(input_diff)
             print(message)
             
     except Exception as e:
-        # Fallback w razie błędu parsowania
+        # Fallback in case of parsing error
         print(f"chore: manual check required (error: {str(e)})")
