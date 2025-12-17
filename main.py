@@ -8,26 +8,18 @@ import re
 app = typer.Typer()
 
 # Wzorzec Conventional Commits
-CONVENTIONAL_REGEX = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9_\-\./]+\))?: .+$"
-
-SYSTEM_PROMPT = (
-    "You are a Senior DevOps Engineer. Analyze the provided code diff. "
-    "Generate a SINGLE commit message strictly following the Conventional Commits v1.0.0 specification. "
-    "Format: <type>(<scope>): <description> "
-    "Allowed types: feat, fix, docs, style, refactor, test, chore. "
-    "Output ONLY the raw message string. No markdown, no explanations."
-)
+CONVENTIONAL_REGEX = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9_\-\./\+]+\))?: .+$"
 
 def check_dependencies():
-    """Verifies that git and gemini-chat are installed."""
+    """Verifies that git is installed."""
     if not shutil.which("git"):
         typer.secho("Error: 'git' is not installed or not in PATH.", fg=typer.colors.RED)
         sys.exit(1)
     
-    # Sprawdzamy czy mamy nasze narzędzie (lokalnie lub w PATH)
-    if not shutil.which("gemini-chat") and not os.path.exists("gemini-chat.bat"):
-        typer.secho("Error: 'gemini-chat' command not found.", fg=typer.colors.RED)
-        typer.echo("Ensure gemini-chat.bat is in the folder or PATH.")
+    # Sprawdzamy czy mamy nasz lokalny silnik
+    local_bridge = os.path.join(os.path.dirname(__file__), "local_bridge.py")
+    if not os.path.exists(local_bridge):
+        typer.secho("Error: 'local_bridge.py' logic engine not found.", fg=typer.colors.RED)
         sys.exit(1)
 
 def get_staged_diff() -> str:
@@ -58,24 +50,12 @@ def get_staged_diff() -> str:
 
 def generate_commit_message(diff_content: str) -> str:
     """
-    Pipes diff to EXTERNAL gemini-chat CLI.
-    This function knows NOTHING about Google API. It just calls a command.
+    Pipes diff to LOCAL python script.
+    No API, No Tokens.
     """
     try:
-        # Ustalamy ścieżkę do komendy
-        # Prefer direct execution with current python if bridge script exists
-        local_bridge = os.path.join(os.path.dirname(__file__), "gemini_bridge.py")
-        if os.path.exists(local_bridge):
-            cmd = [sys.executable, local_bridge]
-        elif os.path.exists("gemini-chat.bat"):
-            cmd_path = os.path.abspath("gemini-chat.bat")
-            cmd = [cmd_path]
-        else:
-            cmd = ["gemini-chat"]
-
-        # Dodajemy flagi dla CLI
-        # Używamy modelu flash bo jest dostępny dla każdego klucza (3-pro może nie działać)
-        cmd.extend(["--model", "gemini-2.5-flash", "--system", SYSTEM_PROMPT])
+        local_bridge = os.path.join(os.path.dirname(__file__), "local_bridge.py")
+        cmd = [sys.executable, local_bridge]
 
         # Uruchamiamy proces (Unix Pipe style)
         process = subprocess.Popen(
@@ -92,7 +72,7 @@ def generate_commit_message(diff_content: str) -> str:
         stdout, stderr = process.communicate(input=diff_content)
         
         if process.returncode != 0:
-            typer.secho(f"External CLI Error: {stderr}", fg=typer.colors.RED)
+            typer.secho(f"Engine Error: {stderr}", fg=typer.colors.RED)
             sys.exit(1)
             
         return stdout.strip()
@@ -111,7 +91,7 @@ def commit():
     diff = get_staged_diff()
     
     # Informacja dla użytkownika
-    typer.echo("Piping content to 'gemini-chat' CLI...")
+    typer.echo("Analyzing changes (Offline Mode)...")
     message = generate_commit_message(diff)
     
     typer.echo("--------------------------------------------------")
