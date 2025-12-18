@@ -23,8 +23,9 @@ SYSTEM_PROMPT = (
     "2. If the change implies logic modification, refactoring, or new features (regardless of file count), PROVIDE A DETAILED BODY.\n"
     "3. Analyze the actual code changes (diff hunks) to describe 'what' and 'why', not just 'where'.\n"
     "4. CRITICAL: Do NOT use markdown code blocks (```). Output raw text only.\n"
-    "5. STYLE RULES: Use IMPERATIVE mood (e.g., 'add' not 'added'). Do NOT use first-person ('I', 'we'). Focus strictly on the code actions.\n"
-    "6. NO PREAMBLE: Start the response DIRECTLY with the commit type (e.g., 'feat: ...'). Do not output any 'I will...' or thinking process."
+    "5. STRICT STYLE RULES: Use IMPERATIVE mood (e.g., 'add' NOT 'added', 'fix' NOT 'fixed').\n"
+    "6. FORBIDDEN WORDS: Do NOT use 'I', 'we', 'me', 'my', 'this commit'. Start directly with the verb.\n"
+    "7. NO PREAMBLE: Start the response DIRECTLY with the commit type."
 )
 
 def get_staged_diff() -> str:
@@ -135,9 +136,12 @@ def commit():
             break
             
         elif choice in ['e', 'edit']:
-            new_message = typer.edit(message, extension=".txt")
-            if new_message:
+            typer.echo(f"Current: {message}")
+            new_message = typer.prompt("New message (leave empty to cancel edit)", default="", show_default=False)
+            if new_message.strip():
                 message = new_message.strip()
+            else:
+                typer.echo("Edit cancelled, keeping original message.")
             # Loop continues to show updated message
             
         elif choice in ['n', 'no']:
