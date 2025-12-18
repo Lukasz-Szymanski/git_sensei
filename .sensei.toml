@@ -1,0 +1,31 @@
+# .sensei.toml - Global Configuration
+
+[core]
+# Domyślny provider. Możesz go nadpisać flagą: sensei commit --provider claude
+default_provider = "gemini"
+
+# Czy sprawdzać sekrety przed wysłaniem? (W przyszłości)
+enable_secrets_check = true
+
+[providers.gemini]
+description = "Oficjalny Google Gemini CLI"
+# To CLI nie obsluguje flagi --system. Przekazujemy prompt jako argument pozycyjny.
+command = "gemini \"{system}\""
+
+[providers.claude]
+description = "Anthropic Claude (via llm tool or custom wrapper)"
+# Przykład dla narzędzia 'simonw/llm'
+command = "llm -m claude-3-opus -s \"{system}\""
+
+[providers.openai]
+description = "OpenAI GPT-4 via CLI"
+# Przykład: chatgpt-cli
+command = "chatgpt -m gpt-4 --system \"{system}\""
+
+[providers.local]
+description = "Local AI (Ollama)"
+command = "ollama run llama3 \"{system}\n\nHere is the diff:\n\""
+
+[providers.echo]
+description = "Debug - tylko wyświetla prompt i diff"
+command = "cat"
