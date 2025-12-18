@@ -119,16 +119,33 @@ def commit():
         typer.echo("AI CLI not found or failed. Using local engine...")
         message = call_local_fallback(diff)
     
-    typer.echo("-" * 50)
-    typer.secho(f"Suggested: {message}", fg=typer.colors.GREEN, bold=True)
-    typer.echo("-" * 50)
-    
-    if typer.confirm("Use this message?"):
-        subprocess.run(["git", "commit", "-m", message], check=True)
-        typer.secho("✅ Committed!", fg=typer.colors.GREEN)
+    while True:
+        typer.echo("-" * 50)
+        typer.secho(f"Suggested: {message}", fg=typer.colors.GREEN, bold=True)
+        typer.echo("-" * 50)
         
-        if typer.confirm("Push to remote?"):
-            subprocess.run(["git", "push"])
+        choice = typer.prompt("Action? [y]es, [n]o, [e]dit", default="y").lower()
+        
+        if choice in ['y', 'yes']:
+            subprocess.run(["git", "commit", "-m", message], check=True)
+            typer.secho("✅ Committed!", fg=typer.colors.GREEN)
+            
+            if typer.confirm("Push to remote?"):
+                subprocess.run(["git", "push"])
+            break
+            
+        elif choice in ['e', 'edit']:
+            new_message = typer.edit(message, extension=".txt")
+            if new_message:
+                message = new_message.strip()
+            # Loop continues to show updated message
+            
+        elif choice in ['n', 'no']:
+            typer.secho("Aborted.", fg=typer.colors.RED)
+            sys.exit(0)
+            
+        else:
+            typer.echo("Invalid choice.")
 
 if __name__ == "__main__":
     app()
