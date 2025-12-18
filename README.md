@@ -49,14 +49,19 @@ It reads your staged changes (`git diff`) and pipes them through an AI engine to
    ```
    *(Requires adding the script to your `PATH` or creating an alias)*
 
-3. **Confirm:**
+3. **Review & Decide:**
     ```text
     Suggested: feat(auth): implement JWT token validation
 
     [Body]
     - added middleware for token extraction
     - updated user model to store refresh tokens
+    
+    Action? [y]es, [n]o, [e]dit [y]:
     ```
+    *   **[y]es:** Commit and push (optional).
+    *   **[e]dit:** Tweak the message inline without leaving the terminal.
+    *   **[n]o:** Abort.
 
 ## 📂 Project Structure
 
@@ -73,6 +78,11 @@ git_sensei/
 
 <details>
 <summary><strong>Click to expand version history</strong></summary>
+
+### v0.3.0 (2025-12-18)
+*   **feat(ux):** Added inline message editing. Press `e` to tweak the suggestion directly in the terminal.
+*   **style(ai):** Enforced stricter prompt rules to ban first-person references ("I", "we") and ensure imperative mood.
+*   **chore:** Setup local testing environment in `.gitignore`.
 
 ### v0.2.0 (2025-12-17)
 *   **feat(core):** Integrated `gemini-cli` pipe for intelligent, context-aware commit messages.
