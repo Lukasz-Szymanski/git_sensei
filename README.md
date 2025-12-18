@@ -18,6 +18,7 @@ It reads your staged changes (`git diff`) and pipes them through an AI engine to
 ## 🚀 Features
 
 - **🧠 Context Aware:** Understands complex refactoring and generates detailed commit bodies.
+- **🎫 Smart Context:** Automatically links commits to tasks by extracting IDs (e.g., `PROJ-123`) from branch names.
 - **⚡ Blazing Fast Fallback:** Zero latency mode when AI is unreachable.
 - **🔒 Privacy First:** Your code is processed via your local CLI configuration.
 - **📏 Standardization:** Enforces **Conventional Commits** (`feat`, `fix`, `chore`, etc.).
@@ -78,6 +79,9 @@ git_sensei/
 
 <details>
 <summary><strong>Click to expand version history</strong></summary>
+
+### v0.4.0 (2025-12-18)
+*   **feat(core):** Implemented Smart Context. The tool now automatically detects issue IDs (like `PROJ-123`) from branch names and appends `Refs: ID` to the commit footer.
 
 ### v0.3.0 (2025-12-18)
 *   **feat(ux):** Added inline message editing. Press `e` to tweak the suggestion directly in the terminal.
