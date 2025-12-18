@@ -28,6 +28,24 @@ SYSTEM_PROMPT = (
     "7. NO PREAMBLE: Start the response DIRECTLY with the commit type."
 )
 
+def extract_issue_id() -> str:
+    """
+    Extracts Jira-like issue ID (PROJ-123) from the current git branch name.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "branch", "--show-current"],
+            capture_output=True, text=True, encoding='utf-8'
+        )
+        branch_name = result.stdout.strip()
+        # Match standard uppercase ticket ID: START-123 or PROJ-123
+        match = re.search(r'([A-Z]+-\d+)', branch_name)
+        if match:
+            return match.group(1)
+    except Exception:
+        pass
+    return None
+
 def get_staged_diff() -> str:
     try:
         subprocess.check_call(["git", "diff", "--staged", "--quiet"])
@@ -119,6 +137,11 @@ def commit():
     if not message:
         typer.echo("AI CLI not found or failed. Using local engine...")
         message = call_local_fallback(diff)
+    
+    # Smart Context: Attach Issue ID if available in branch name
+    issue_id = extract_issue_id()
+    if issue_id:
+        message += f"\n\nRefs: {issue_id}"
     
     while True:
         typer.echo("-" * 50)
