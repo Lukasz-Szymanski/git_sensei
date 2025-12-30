@@ -7,6 +7,7 @@ A CLI tool that generates professional commit messages using any AI provider (Ge
 ## Features
 
 - **Universal Providers** - Switch between Gemini, Claude Code, OpenAI, or local LLMs with one command
+- **Secrets Shield** - Scans diffs for API keys, tokens, passwords before sending to AI
 - **Smart Context** - Automatically links commits to Jira/issue IDs from branch names (e.g., `PROJ-123`)
 - **Conventional Commits** - Generates properly formatted commit messages
 - **Offline Fallback** - Heuristic engine works when AI is unavailable
@@ -42,6 +43,7 @@ pip install -e .
 ## Quick Start
 
 ```bash
+sensei init      # First time setup (choose AI provider)
 git add .        # Stage your changes
 sensei commit    # Generate commit with AI
 ```
@@ -50,6 +52,7 @@ sensei commit    # Generate commit with AI
 
 | Command | Description |
 |---------|-------------|
+| `sensei init` | Interactive setup wizard |
 | `sensei commit` | Generate and create a commit |
 | `sensei commit -p claude` | Use specific provider |
 | `sensei commit -d` | Dry run (preview only) |
@@ -134,6 +137,14 @@ git_sensei/
 
 <details>
 <summary>Version history</summary>
+
+### v0.9.0 (2025-12-30)
+- Added Secrets Shield - detects API keys, tokens, passwords in diffs
+- Warns before sending sensitive data to AI provider
+
+### v0.8.0 (2025-12-30)
+- Added `sensei init` interactive setup wizard
+- Improved CLI help messages with examples
 
 ### v0.7.0 (2025-12-30)
 - Added `sensei use <provider>` command

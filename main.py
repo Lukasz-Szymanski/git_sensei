@@ -9,6 +9,7 @@ from typing import Optional
 # Local module imports
 from config import ConfigManager
 from providers import AIProvider
+from secrets import scan_diff, format_warning
 
 app = typer.Typer(
     help="Git-Sensei: AI-powered commit message generator. Quick start: git add . && sensei commit",
@@ -116,26 +117,34 @@ def commit(
 
     ai_engine = AIProvider(selected_provider_name, provider_cfg)
     
-    typer.echo(f"🥋 Sensei using provider: {selected_provider_name}")
+    typer.echo(f"Sensei using provider: {selected_provider_name}")
     typer.echo("Reading staged changes...")
     diff = get_staged_diff()
 
-    # 2. Execute AI
+    # 2. Secrets Shield - scan for potential secrets
+    secret_matches = scan_diff(diff)
+    if secret_matches:
+        typer.secho(format_warning(secret_matches), fg=typer.colors.YELLOW)
+        if not typer.confirm("Continue anyway? (secrets will be sent to AI provider)", default=False):
+            typer.secho("Aborted. Remove secrets before committing.", fg=typer.colors.RED)
+            sys.exit(1)
+
+    # 3. Execute AI
     typer.echo("Thinking...")
     raw_message = ai_engine.execute(diff, SYSTEM_PROMPT)
-    
+
     if raw_message:
         message = clean_response(raw_message)
     else:
-        typer.echo("⚠️ AI Provider failed or returned empty. Using Local Fallback.")
+        typer.echo("AI Provider failed or returned empty. Using Local Fallback.")
         message = call_local_fallback(diff)
 
-    # 3. Smart Context
+    # 4. Smart Context
     issue_id = extract_issue_id()
     if issue_id:
         message += f"\n\nRefs: {issue_id}"
-    
-    # 4. Review Loop
+
+    # 5. Review Loop
     while True:
         typer.echo("-" * 50)
         typer.secho(f"Suggested: {message}", fg=typer.colors.GREEN, bold=True)
@@ -221,6 +230,107 @@ def use_provider(
     else:
         typer.secho(f"❌ Failed to save configuration.", fg=typer.colors.RED)
         sys.exit(1)
+
+@app.command(name="init")
+def init():
+    """
+    Interactive setup wizard for first-time configuration.
+
+    Helps you choose an AI provider and saves config to ~/.sensei.toml.
+    """
+    typer.echo("Welcome to Git-Sensei!")
+    typer.echo("-" * 40)
+
+    # Available providers with install instructions
+    providers_info = {
+        "gemini": {
+            "name": "Google Gemini CLI",
+            "install": "npm install -g @google/gemini-cli",
+            "command": 'gemini "{system}"'
+        },
+        "claude": {
+            "name": "Claude Code (Anthropic)",
+            "install": "npm install -g @anthropic-ai/claude-code",
+            "command": 'claude --print "{system}"'
+        },
+        "openai": {
+            "name": "OpenAI ChatGPT",
+            "install": "pip install chatgpt-cli",
+            "command": 'chatgpt -m gpt-4 --system "{system}"'
+        },
+        "ollama": {
+            "name": "Ollama (Local)",
+            "install": "https://ollama.ai",
+            "command": 'ollama run llama3 "{system}"'
+        }
+    }
+
+    # Show options
+    typer.echo("\nAvailable AI providers:\n")
+    provider_list = list(providers_info.keys())
+    for i, key in enumerate(provider_list, 1):
+        info = providers_info[key]
+        typer.echo(f"  {i}. {info['name']}")
+        typer.echo(f"     Install: {info['install']}")
+
+    typer.echo("")
+
+    # Get user choice
+    while True:
+        choice = typer.prompt("Select provider (1-4)", default="1")
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(provider_list):
+                selected = provider_list[idx]
+                break
+            else:
+                typer.echo("Invalid choice. Enter 1-4.")
+        except ValueError:
+            typer.echo("Invalid choice. Enter 1-4.")
+
+    selected_info = providers_info[selected]
+    typer.echo(f"\nSelected: {selected_info['name']}")
+
+    # Check if provider is installed
+    typer.echo("Checking if CLI tool is installed...")
+    test_engine = AIProvider(selected, {"command": selected_info["command"]})
+
+    if test_engine.check_health():
+        typer.secho("OK - CLI tool found!", fg=typer.colors.GREEN)
+    else:
+        typer.secho("WARNING - CLI tool not found in PATH.", fg=typer.colors.YELLOW)
+        typer.echo(f"Install with: {selected_info['install']}")
+        if not typer.confirm("Continue anyway?", default=True):
+            typer.echo("Aborted.")
+            sys.exit(0)
+
+    # Save config
+    config_path = config_mgr.get_config_path()
+
+    config_content = f'''[core]
+default_provider = "{selected}"
+
+[providers.{selected}]
+description = "{selected_info['name']}"
+command = '{selected_info['command']}'
+'''
+
+    # Check if config exists
+    if os.path.exists(config_path):
+        if not typer.confirm(f"\n{config_path} exists. Overwrite?", default=False):
+            # Just update default provider
+            if config_mgr.set_default_provider(selected):
+                typer.secho(f"\nDefault provider set to '{selected}'.", fg=typer.colors.GREEN)
+            sys.exit(0)
+
+    # Write new config
+    with open(config_path, "w", encoding="utf-8") as f:
+        f.write(config_content)
+
+    typer.secho(f"\nConfig saved to: {config_path}", fg=typer.colors.GREEN)
+    typer.echo("\nYou're ready! Try:")
+    typer.echo("  git add .")
+    typer.echo("  sensei commit")
 
 @app.command(name="check")
 def check(provider: str = typer.Argument(None, help="Provider to check (defaults to current).")):
