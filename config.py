@@ -1,6 +1,7 @@
 import os
 import sys
-from typing import Dict, Any
+import re
+from typing import Dict, Any, Optional
 
 # Try to import tomli (Python 3.11+ has tomllib built-in, otherwise generic tomli)
 try:
@@ -33,11 +34,12 @@ class ConfigManager:
         self.load_config()
 
     def load_config(self):
-        """Loads config from ~/.sensei.toml or local .sensei.toml"""
+        """Loads config from multiple sources. Later entries override earlier ones."""
+        # Order: defaults -> package -> project -> user (highest priority)
         paths = [
-            os.path.expanduser("~/.sensei.toml"),
-            os.path.join(os.getcwd(), ".sensei.toml"),
-            os.path.join(os.path.dirname(__file__), ".sensei.toml") # Default inside package
+            os.path.join(os.path.dirname(__file__), ".sensei.toml"),  # Package defaults
+            os.path.join(os.getcwd(), ".sensei.toml"),                 # Project-level
+            os.path.expanduser("~/.sensei.toml"),                      # User config (highest priority)
         ]
 
         if not toml:
@@ -71,6 +73,51 @@ class ConfigManager:
 
     def list_providers(self) -> Dict[str, str]:
         return {
-            name: data.get("description", "") 
+            name: data.get("description", "")
             for name, data in self.config.get("providers", {}).items()
         }
+
+    def get_config_path(self) -> str:
+        """Returns the path to user's config file (creates if needed)."""
+        return os.path.expanduser("~/.sensei.toml")
+
+    def set_default_provider(self, provider_name: str) -> bool:
+        """Sets the default provider in the user's config file."""
+        if provider_name not in self.config.get("providers", {}):
+            return False
+
+        config_path = self.get_config_path()
+
+        # Read existing content or create new
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            # Update existing default_provider line
+            if re.search(r'^default_provider\s*=', content, re.MULTILINE):
+                content = re.sub(
+                    r'^default_provider\s*=\s*["\']?\w+["\']?',
+                    f'default_provider = "{provider_name}"',
+                    content,
+                    flags=re.MULTILINE
+                )
+            elif "[core]" in content:
+                # Add under [core] section
+                content = re.sub(
+                    r'(\[core\])',
+                    f'[core]\ndefault_provider = "{provider_name}"',
+                    content
+                )
+            else:
+                # Prepend [core] section
+                content = f'[core]\ndefault_provider = "{provider_name}"\n\n' + content
+        else:
+            # Create new config file
+            content = f'[core]\ndefault_provider = "{provider_name}"\n'
+
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        # Update in-memory config
+        self.config["core"]["default_provider"] = provider_name
+        return True

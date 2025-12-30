@@ -189,10 +189,35 @@ def _list_providers_impl():
         prefix = "*" if name == default else " "
         typer.echo(f"{prefix} {name:<10} : {desc}")
 
+@app.command(name="use")
+def use_provider(
+    provider: str = typer.Argument(..., help="Provider name to set as default (e.g., 'claude', 'gemini').")
+):
+    """
+    Set the default AI provider for commit generation.
+
+    Example: sensei use claude
+    """
+    available = config_mgr.list_providers()
+
+    if provider not in available:
+        typer.secho(f"❌ Provider '{provider}' not found.", fg=typer.colors.RED)
+        typer.echo("\nAvailable providers:")
+        for name, desc in available.items():
+            typer.echo(f"  - {name}: {desc}")
+        sys.exit(1)
+
+    if config_mgr.set_default_provider(provider):
+        typer.secho(f"✅ Default provider set to '{provider}'.", fg=typer.colors.GREEN)
+        typer.echo(f"Config saved to: {config_mgr.get_config_path()}")
+    else:
+        typer.secho(f"❌ Failed to save configuration.", fg=typer.colors.RED)
+        sys.exit(1)
+
 @app.command(name="check")
 def check(provider: str = typer.Argument(None, help="Specific provider to check. If empty, checks default.")):
     """
-    Diagnose provider connection. 
+    Diagnose provider connection.
     Runs the provider's command to verify it's executable and found in PATH.
     Does NOT verify authentication (unless the tool returns specific error codes).
     """
