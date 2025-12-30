@@ -81,11 +81,23 @@ def scan_diff(diff: str) -> List[SecretMatch]:
     Returns list of SecretMatch objects.
     """
     matches = []
+    current_file = ""
+
+    # Files to skip (contain regex patterns that look like secrets)
+    skip_files = {"secrets.py", "test_secrets.py"}
 
     lines = diff.split('\n')
     line_num = 0
 
     for line in lines:
+        # Track current file
+        if line.startswith('+++ b/'):
+            current_file = line[6:].split('/')[-1]
+            continue
+
+        # Skip files that contain detection patterns
+        if current_file in skip_files:
+            continue
         # Track line numbers from diff headers
         if line.startswith('@@'):
             # Parse @@ -x,y +a,b @@ format
