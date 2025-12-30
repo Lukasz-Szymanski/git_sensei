@@ -8,7 +8,7 @@ A CLI tool that generates professional commit messages using any AI provider (Ge
 
 - **Universal Providers** - Switch between Gemini, Claude Code, OpenAI, or local LLMs with one command
 - **Secrets Shield** - Scans diffs for API keys, tokens, passwords before sending to AI
-- **Smart Context** - Automatically links commits to Jira/issue IDs from branch names (e.g., `PROJ-123`)
+- **Smart Context** - Auto-links commits to issue IDs from branch names (Jira, GitHub, GitLab, Linear, Azure DevOps)
 - **Conventional Commits** - Generates properly formatted commit messages
 - **Offline Fallback** - Heuristic engine works when AI is unavailable
 - **Interactive Review** - Edit, retry, or approve before committing
@@ -85,24 +85,35 @@ Sensei loads configuration from (in order of priority):
 [core]
 default_provider = "claude"
 
-[providers.gemini]
-description = "Google Gemini CLI"
-command = "gemini \"{system}\""
-
 [providers.claude]
 description = "Claude Code CLI"
 command = "claude --print \"{system}\""
+prompt = """OUTPUT ONLY THE COMMIT MESSAGE. NO EXPLANATIONS.
 
-[providers.openai]
-description = "OpenAI GPT-4"
-command = "chatgpt -m gpt-4 --system \"{system}\""
+Format: type(scope): summary
 
-[providers.local]
-description = "Local AI (Ollama)"
-command = "ollama run llama3 \"{system}\""
+- bullet points for details
+
+Types: feat, fix, docs, refactor, chore
+Start DIRECTLY with type."""
 ```
 
-The `{system}` placeholder is replaced with the prompt. Git diff is piped to stdin.
+- `{system}` - replaced with the prompt
+- `prompt` - custom prompt per provider (optional)
+- Git diff is piped to stdin
+
+### Tuning Prompts
+
+Use dry run to test your prompt without committing:
+
+```bash
+sensei commit -d          # Preview generated message
+# Edit .sensei.toml prompt if needed
+sensei commit -d          # Test again
+sensei commit             # Commit when satisfied
+```
+
+Each AI model may need different prompting style. Adjust per provider in config.
 
 ## Interactive Workflow
 
@@ -137,6 +148,11 @@ git_sensei/
 
 <details>
 <summary>Version history</summary>
+
+### v0.10.0 (2025-12-30)
+- Extended Smart Context to support GitHub (#123), GitLab, Linear, Azure DevOps, Shortcut
+- Custom prompts per provider in .sensei.toml
+- Improved default prompt for cleaner AI output
 
 ### v0.9.0 (2025-12-30)
 - Added Secrets Shield - detects API keys, tokens, passwords in diffs

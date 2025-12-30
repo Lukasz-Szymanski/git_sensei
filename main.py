@@ -41,16 +41,39 @@ Rules:
 - Start response DIRECTLY with the type (feat/fix/etc)"""
 
 def extract_issue_id() -> Optional[str]:
-    """Extracts Jira-like issue ID (PROJ-123) from the current git branch name."""
+    """
+    Extracts issue ID from the current git branch name.
+
+    Supported formats:
+    - Jira: PROJ-123, ABC-1
+    - GitHub/GitLab: #123, issue-123
+    - Linear: LIN-123, ENG-456
+    - Azure DevOps: AB#123
+    - Shortcut: sc-123
+    """
     try:
         result = subprocess.run(
             ["git", "branch", "--show-current"],
             capture_output=True, text=True, encoding='utf-8'
         )
         branch_name = result.stdout.strip()
-        match = re.search(r'([A-Z]+-\d+)', branch_name)
-        if match:
-            return match.group(1)
+
+        # Patterns in order of priority
+        patterns = [
+            (r'(AB#\d+)', None),                # Azure DevOps: AB#123
+            (r'issue[/-](\d+)', '#{}'),         # issue-123, issue/123 -> #123
+            (r'sc[/-](\d+)', 'sc-{}'),          # Shortcut: sc-123
+            (r'(?:^|/)#(\d+)', '#{}'),          # GitHub/GitLab: #123 or feature/#123
+            (r'([A-Z]{2,}-\d+)', None),         # Jira/Linear: PROJ-123, LIN-456 (min 2 letters)
+        ]
+
+        for pattern, format_str in patterns:
+            match = re.search(pattern, branch_name, re.IGNORECASE)
+            if match:
+                if format_str:
+                    return format_str.format(match.group(1))
+                return match.group(1)
+
     except Exception:
         pass
     return None
