@@ -116,7 +116,7 @@ def commit(
         sys.exit(1)
 
     ai_engine = AIProvider(selected_provider_name, provider_cfg)
-    
+
     typer.echo(f"Sensei using provider: {selected_provider_name}")
     typer.echo("Reading staged changes...")
     diff = get_staged_diff()
@@ -331,92 +331,6 @@ command = '{selected_info['command']}'
     typer.echo("\nYou're ready! Try:")
     typer.echo("  git add .")
     typer.echo("  sensei commit")
-
-@app.command(name="hook")
-def hook(
-    uninstall: bool = typer.Option(False, "--uninstall", "-u", help="Remove the git hook.")
-):
-    """
-    Install git hook for automatic commit message generation.
-
-    Installs prepare-commit-msg hook that runs sensei on every git commit.
-    Use --uninstall to remove.
-    """
-    # Find .git directory
-    git_dir = None
-    current = os.getcwd()
-    while current != os.path.dirname(current):
-        if os.path.isdir(os.path.join(current, ".git")):
-            git_dir = os.path.join(current, ".git")
-            break
-        current = os.path.dirname(current)
-
-    if not git_dir:
-        typer.secho("Not a git repository.", fg=typer.colors.RED)
-        sys.exit(1)
-
-    hooks_dir = os.path.join(git_dir, "hooks")
-    hook_path = os.path.join(hooks_dir, "prepare-commit-msg")
-
-    if uninstall:
-        if os.path.exists(hook_path):
-            # Check if it's our hook
-            with open(hook_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            if "sensei" in content:
-                os.remove(hook_path)
-                typer.secho("Hook uninstalled.", fg=typer.colors.GREEN)
-            else:
-                typer.secho("Hook exists but wasn't installed by sensei.", fg=typer.colors.YELLOW)
-        else:
-            typer.echo("No hook installed.")
-        return
-
-    # Create hooks directory if needed
-    os.makedirs(hooks_dir, exist_ok=True)
-
-    # Check if hook already exists
-    if os.path.exists(hook_path):
-        with open(hook_path, "r", encoding="utf-8") as f:
-            if "sensei" in f.read():
-                typer.echo("Hook already installed.")
-                return
-        if not typer.confirm("A prepare-commit-msg hook exists. Overwrite?", default=False):
-            typer.echo("Aborted.")
-            return
-
-    # Create hook script
-    hook_script = '''#!/bin/sh
-# Git-Sensei prepare-commit-msg hook
-# Auto-generates commit message using AI
-
-COMMIT_MSG_FILE=$1
-COMMIT_SOURCE=$2
-
-# Only run for regular commits (not merge, squash, etc.)
-if [ -z "$COMMIT_SOURCE" ]; then
-    # Check if message is empty or default
-    if [ ! -s "$COMMIT_MSG_FILE" ] || grep -q "^#" "$COMMIT_MSG_FILE"; then
-        # Generate message with sensei
-        MSG=$(sensei commit --dry-run 2>/dev/null | grep -A 100 "Suggested:" | head -1 | sed 's/Suggested: //')
-        if [ -n "$MSG" ]; then
-            echo "$MSG" > "$COMMIT_MSG_FILE"
-        fi
-    fi
-fi
-'''
-
-    with open(hook_path, "w", encoding="utf-8", newline='\n') as f:
-        f.write(hook_script)
-
-    # Make executable (Unix)
-    if os.name != 'nt':
-        os.chmod(hook_path, 0o755)
-
-    typer.secho("Hook installed!", fg=typer.colors.GREEN)
-    typer.echo(f"Location: {hook_path}")
-    typer.echo("\nNow 'git commit' will auto-generate messages.")
-    typer.echo("Use 'sensei hook --uninstall' to remove.")
 
 @app.command(name="check")
 def check(provider: str = typer.Argument(None, help="Provider to check (defaults to current).")):
