@@ -1,6 +1,6 @@
 # Git-Sensei
 
-[![CI](https://github.com/user/git-sensei/actions/workflows/ci.yml/badge.svg)](https://github.com/user/git-sensei/actions/workflows/ci.yml)
+[![CI](https://github.com/Lukasz-Szymanski/git_sensei/actions/workflows/ci.yml/badge.svg)](https://github.com/Lukasz-Szymanski/git_sensei/actions/workflows/ci.yml)
 
 > **Smart Context. Universal AI Adapter. Professional Commits.**
 
@@ -35,12 +35,12 @@ pip install -e .
 - **Git**
 - **One of the AI CLI tools:**
 
-| Provider | Installation |
-|----------|-------------|
-| Gemini | `npm install -g @google/gemini-cli` |
+| Provider    | Installation                               |
+| ----------- | ------------------------------------------ |
+| Gemini      | `npm install -g @google/gemini-cli`        |
 | Claude Code | `npm install -g @anthropic-ai/claude-code` |
-| OpenAI | `pip install chatgpt-cli` |
-| Ollama | [ollama.ai](https://ollama.ai) |
+| OpenAI      | `pip install chatgpt-cli`                  |
+| Ollama      | [ollama.ai](https://ollama.ai)             |
 
 ## Quick Start
 
@@ -52,15 +52,15 @@ sensei commit    # Generate commit with AI
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `sensei init` | Interactive setup wizard |
-| `sensei commit` | Generate and create a commit |
-| `sensei commit -p claude` | Use specific provider |
-| `sensei commit -d` | Dry run (preview only) |
-| `sensei use <provider>` | Set default AI provider |
-| `sensei ls` | List available providers |
-| `sensei check [provider]` | Verify provider is working |
+| Command                   | Description                  |
+| ------------------------- | ---------------------------- |
+| `sensei init`             | Interactive setup wizard     |
+| `sensei commit`           | Generate and create a commit |
+| `sensei commit -p claude` | Use specific provider        |
+| `sensei commit -d`        | Dry run (preview only)       |
+| `sensei use <provider>`   | Set default AI provider      |
+| `sensei ls`               | List available providers     |
+| `sensei check [provider]` | Verify provider is working   |
 
 ### Examples
 
@@ -77,6 +77,7 @@ sensei check claude           # Check specific provider
 ## Configuration
 
 Sensei loads configuration from (in order of priority):
+
 1. `~/.sensei.toml` (user config - highest priority)
 2. `./.sensei.toml` (project config)
 3. Package defaults
@@ -152,42 +153,52 @@ git_sensei/
 <summary>Version history</summary>
 
 ### v0.10.0 (2025-12-30)
+
 - Extended Smart Context to support GitHub (#123), GitLab, Linear, Azure DevOps, Shortcut
 - Custom prompts per provider in .sensei.toml
 - Improved default prompt for cleaner AI output
 
 ### v0.9.0 (2025-12-30)
+
 - Added Secrets Shield - detects API keys, tokens, passwords in diffs
 - Warns before sending sensitive data to AI provider
 
 ### v0.8.0 (2025-12-30)
+
 - Added `sensei init` interactive setup wizard
 - Improved CLI help messages with examples
 
 ### v0.7.0 (2025-12-30)
+
 - Added `sensei use <provider>` command
 - User config now takes priority over project config
 - Added Claude Code CLI support
 
 ### v0.6.0 (2025-12-18)
+
 - Windows support for `.cmd` and `.bat` tools
 - Enforced `sensei commit` as primary command
 
 ### v0.5.0 (2025-12-18)
+
 - Universal AI Adapter - works with any CLI tool
 - Added `.sensei.toml` configuration
 - Added `sensei check` and `sensei ls` commands
 
 ### v0.4.0 (2025-12-18)
+
 - Smart Context - auto-detect issue IDs from branch names
 
 ### v0.3.0 (2025-12-18)
+
 - Inline message editing
 
 ### v0.2.0 (2025-12-17)
+
 - Gemini CLI integration
 
 ### v0.1.0 (2025-12-09)
+
 - Initial release with heuristic engine
 
 </details>
