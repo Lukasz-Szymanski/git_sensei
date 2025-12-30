@@ -47,7 +47,10 @@ Want to use a specific model for a tough task?
 # List available providers from your config
 sensei ls           # (alias for list-providers)
 
-# Use a specific one
+# Set default provider permanently
+sensei use claude
+
+# Or use a specific one for a single commit
 sensei commit --provider claude
 ```
 
@@ -55,7 +58,7 @@ sensei commit --provider claude
 Check if your configured tools are reachable:
 ```bash
 sensei doctor       # (alias for check)
-sensei check --provider claude
+sensei check claude
 ```
 
 ## ⚙️ Configuration (`.sensei.toml`)
@@ -96,6 +99,11 @@ git_sensei/
 
 <details>
 <summary><strong>Click to expand version history</strong></summary>
+
+### v0.7.0 (2025-12-30) - Provider Switching
+*   **feat(cli):** Added `sensei use <provider>` command to set default provider permanently.
+*   **feat(config):** User config (`~/.sensei.toml`) now takes priority over project config.
+*   **feat(providers):** Added Claude Code CLI support out of the box.
 
 ### v0.6.0 (2025-12-18) - The Final Universal Polish
 *   **feat(win32):** Added support for `.cmd` and `.bat` AI CLI tools (like npm globals) via `shell=True`.
