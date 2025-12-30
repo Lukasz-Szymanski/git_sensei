@@ -11,8 +11,9 @@ from config import ConfigManager
 from providers import AIProvider
 
 app = typer.Typer(
-    help="🥋 Git-Sensei: AI-powered commit assistant.\n\nQuick Start: Run 'sensei commit' to generate a message for staged changes.",
-    add_completion=False
+    help="Git-Sensei: AI-powered commit message generator. Quick start: git add . && sensei commit",
+    add_completion=False,
+    rich_markup_mode=None,  # Disable rich to avoid encoding issues on Windows
 )
 config_mgr = ConfigManager()
 
@@ -89,11 +90,14 @@ def call_local_fallback(diff_content: str) -> str:
 
 @app.command()
 def commit(
-    provider: str = typer.Option(None, help="Override AI provider (e.g., 'claude', 'gemini'). Defaults to config."),
-    dry_run: bool = typer.Option(False, help="Show the message but do not commit.")
+    provider: str = typer.Option(None, "--provider", "-p", help="AI provider to use (e.g., 'claude', 'gemini')."),
+    dry_run: bool = typer.Option(False, "--dry-run", "-d", help="Preview message without committing.")
 ):
     """
-    Generates a commit message using the configured AI provider.
+    Generate a commit message using AI.
+
+    Analyzes staged changes and generates a Conventional Commit message.
+    You can review, edit, or retry before committing.
     """
     if not shutil.which("git"):
         typer.secho("Git not found!", fg=typer.colors.RED)
@@ -174,7 +178,11 @@ def commit(
 
 @app.command(name="list-providers")
 def list_providers():
-    """Lists all available AI providers from configuration."""
+    """
+    List all available AI providers.
+
+    Shows providers from .sensei.toml. Default is marked with *.
+    """
     _list_providers_impl()
 
 @app.command(name="ls", hidden=True)
@@ -191,12 +199,12 @@ def _list_providers_impl():
 
 @app.command(name="use")
 def use_provider(
-    provider: str = typer.Argument(..., help="Provider name to set as default (e.g., 'claude', 'gemini').")
+    provider: str = typer.Argument(..., help="Provider name (e.g., 'claude', 'gemini').")
 ):
     """
-    Set the default AI provider for commit generation.
+    Set the default AI provider.
 
-    Example: sensei use claude
+    Saves to ~/.sensei.toml. Use 'sensei ls' to see available providers.
     """
     available = config_mgr.list_providers()
 
@@ -215,11 +223,11 @@ def use_provider(
         sys.exit(1)
 
 @app.command(name="check")
-def check(provider: str = typer.Argument(None, help="Specific provider to check. If empty, checks default.")):
+def check(provider: str = typer.Argument(None, help="Provider to check (defaults to current).")):
     """
-    Diagnose provider connection.
-    Runs the provider's command to verify it's executable and found in PATH.
-    Does NOT verify authentication (unless the tool returns specific error codes).
+    Check if an AI provider is working.
+
+    Verifies CLI tool is installed and in PATH. Does not check authentication.
     """
     _check_impl(provider)
 

@@ -1,143 +1,176 @@
-# 🥋 Git-Sensei
+# Git-Sensei
 
 > **Smart Context. Universal AI Adapter. Professional Commits.**
-> 
-> An automated commit message generator that orchestrates **ANY AI CLI** (Gemini, Claude, OpenAI, Ollama) to analyze your code and write professional logs.
 
----
+A CLI tool that generates professional commit messages using any AI provider (Gemini, Claude Code, OpenAI, Ollama).
 
-## 🧐 What is it?
+## Features
 
-**Git-Sensei** is a "Meta-CLI" tool designed to eliminate "Commit Fatigue".
-It reads your staged changes (`git diff`) and pipes them through your preferred AI engine to understand *why* you made the changes.
+- **Universal Providers** - Switch between Gemini, Claude Code, OpenAI, or local LLMs with one command
+- **Smart Context** - Automatically links commits to Jira/issue IDs from branch names (e.g., `PROJ-123`)
+- **Conventional Commits** - Generates properly formatted commit messages
+- **Offline Fallback** - Heuristic engine works when AI is unavailable
+- **Interactive Review** - Edit, retry, or approve before committing
 
-**Key Philosophy:**
-*   **Universal Adapter:** Works with *any* CLI tool you have installed (Gemini, Claude, GitHub Copilot, custom scripts).
-*   **Bring Your Own Auth (BYOA):** We don't manage your keys. If your CLI works in the terminal, it works with Sensei.
-*   **Privacy Choice:** Use cloud AI for power, or local LLMs (Ollama) for privacy.
+## Installation
 
-## 🚀 Features
-
-- **🔌 Universal Providers:** Switch between Gemini, Claude, or Local Llama with one config change.
-- **🧠 Context Aware:** Understands complex refactoring and generates detailed commit bodies.
-- **🎫 Smart Context:** Automatically links commits to tasks by extracting IDs (e.g., `PROJ-123`) from branch names.
-- **⚡ Offline Fallback:** Zero latency mode when AI is unreachable.
-- **🛡️ Safety Net:** Nothing is committed without your explicit `[y/N]` confirmation.
-
-## 🛠️ Requirements
-
-1.  **Python 3.9+** & **Git**
-2.  **Any AI CLI Tool** (Optional but recommended):
-    - `npm install -g @google/gemini-cli`
-    - `pip install llm` (for Claude/GPT)
-    - `ollama` (for local models)
-
-## 💻 Usage
-
-### 1. Basic Workflow
-Stage your changes and run the sensei:
 ```bash
-git add .
-sensei
+# Clone the repository
+git clone https://github.com/yourusername/git-sensei.git
+cd git-sensei
+
+# Install dependencies
+pip install typer
+
+# (Optional) Install as global command
+pip install -e .
 ```
 
-### 2. Switching Providers
-Want to use a specific model for a tough task?
+## Requirements
+
+- **Python 3.9+**
+- **Git**
+- **One of the AI CLI tools:**
+
+| Provider | Installation |
+|----------|-------------|
+| Gemini | `npm install -g @google/gemini-cli` |
+| Claude Code | `npm install -g @anthropic-ai/claude-code` |
+| OpenAI | `pip install chatgpt-cli` |
+| Ollama | [ollama.ai](https://ollama.ai) |
+
+## Quick Start
+
 ```bash
-# List available providers from your config
-sensei ls           # (alias for list-providers)
+# Stage your changes
+git add .
 
-# Set default provider permanently
-sensei use claude
+# Generate commit message
+sensei commit
 
-# Or use a specific one for a single commit
+# Or with a specific provider
 sensei commit --provider claude
 ```
 
-### 3. Diagnostics
-Check if your configured tools are reachable:
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `sensei commit` | Generate and create a commit |
+| `sensei use <provider>` | Set default AI provider |
+| `sensei ls` | List available providers |
+| `sensei check [provider]` | Verify provider is working |
+
+### Examples
+
 ```bash
-sensei doctor       # (alias for check)
+# Set Claude Code as default
+sensei use claude
+
+# List providers (* marks default)
+sensei ls
+
+# Check if provider works
 sensei check claude
+
+# Dry run (preview without committing)
+sensei commit --dry-run
 ```
 
-## ⚙️ Configuration (`.sensei.toml`)
+## Configuration
 
-Sensei looks for a configuration file in the project root or `~/.sensei.toml`.
-Use this to define your own wrappers!
+Sensei loads configuration from (in order of priority):
+1. `~/.sensei.toml` (user config - highest priority)
+2. `./.sensei.toml` (project config)
+3. Package defaults
+
+### Example `.sensei.toml`
 
 ```toml
 [core]
-default_provider = "gemini"
+default_provider = "claude"
 
 [providers.gemini]
-description = "Google Gemini"
-command = "gemini --system \"{system}\""
+description = "Google Gemini CLI"
+command = "gemini \"{system}\""
 
 [providers.claude]
-description = "Anthropic Claude via 'llm' tool"
-command = "llm -m claude-3-opus -s \"{system}\""
+description = "Claude Code CLI"
+command = "claude --print \"{system}\""
+
+[providers.openai]
+description = "OpenAI GPT-4"
+command = "chatgpt -m gpt-4 --system \"{system}\""
+
+[providers.local]
+description = "Local AI (Ollama)"
+command = "ollama run llama3 \"{system}\""
 ```
 
----
+The `{system}` placeholder is replaced with the prompt. Git diff is piped to stdin.
 
-## 📂 Project Structure
+## Interactive Workflow
 
-```text
+After generating a message, you'll see:
+
+```
+--------------------------------------------------
+Suggested: feat(auth): add user login endpoint
+--------------------------------------------------
+Action? [y]es, [n]o, [e]dit, [r]etry
+```
+
+- **y** - Commit with this message
+- **n** - Abort
+- **e** - Edit the message
+- **r** - Regenerate with AI
+
+## Project Structure
+
+```
 git_sensei/
-├── main.py           # CLI Entrypoint & UI
-├── config.py         # TOML Configuration Loader
-├── providers.py      # Universal Command Adapter
-├── local_bridge.py   # Offline Heuristic Engine
+├── main.py           # CLI entrypoint
+├── config.py         # Configuration loader
+├── providers.py      # AI provider adapter
+├── local_bridge.py   # Offline fallback engine
 ├── .sensei.toml      # Default configuration
-└── docs/             # ADRs, Roadmap & Deep Research
+├── tests/            # Unit tests
+└── docs/             # Documentation
 ```
 
----
-
-## 📜 Changelog
+## Changelog
 
 <details>
-<summary><strong>Click to expand version history</strong></summary>
+<summary>Version history</summary>
 
-### v0.7.0 (2025-12-30) - Provider Switching
-*   **feat(cli):** Added `sensei use <provider>` command to set default provider permanently.
-*   **feat(config):** User config (`~/.sensei.toml`) now takes priority over project config.
-*   **feat(providers):** Added Claude Code CLI support out of the box.
+### v0.7.0 (2025-12-30)
+- Added `sensei use <provider>` command
+- User config now takes priority over project config
+- Added Claude Code CLI support
 
-### v0.6.0 (2025-12-18) - The Final Universal Polish
-*   **feat(win32):** Added support for `.cmd` and `.bat` AI CLI tools (like npm globals) via `shell=True`.
-*   **feat(cli):** Enforced `sensei commit` as the primary action for better CLI clarity.
-*   **feat(ux):** Improved help messages with `prog_name="sensei"` for cleaner terminal output.
-*   **fix(config):** Adjusted default `.sensei.toml` for compatibility with `@google/gemini-cli`.
+### v0.6.0 (2025-12-18)
+- Windows support for `.cmd` and `.bat` tools
+- Enforced `sensei commit` as primary command
 
-### v0.5.1 (2025-12-18)
-*   **refactor:** Flattened project structure for better maintainability.
-*   **feat(cli):** Added short aliases for common commands (`ls` for `list-providers`, `doctor` for `check`).
-*   **docs:** Moved architectural documents to `docs/`.
-
-### v0.5.0 (2025-12-18) - The Universal Update
-*   **feat(core):** Implemented **Universal AI Adapter**. Sensei is now agnostic and can drive any CLI tool defined in configuration.
-*   **feat(config):** Added `.sensei.toml` support for defining custom providers and commands.
-*   **feat(cli):** Added `sensei check` for diagnosing tool availability.
-*   **feat(cli):** Added `sensei list-providers` to show available engines.
-*   **feat(ux):** Added `[r]etry` option to the commit review menu.
+### v0.5.0 (2025-12-18)
+- Universal AI Adapter - works with any CLI tool
+- Added `.sensei.toml` configuration
+- Added `sensei check` and `sensei ls` commands
 
 ### v0.4.0 (2025-12-18)
-*   **feat(core):** Implemented Smart Context. The tool now automatically detects issue IDs (like `PROJ-123`) from branch names and appends `Refs: ID` to the commit footer.
+- Smart Context - auto-detect issue IDs from branch names
 
 ### v0.3.0 (2025-12-18)
-*   **feat(ux):** Added inline message editing. Press `e` to tweak the suggestion directly in the terminal.
-*   **style(ai):** Enforced stricter prompt rules.
+- Inline message editing
 
 ### v0.2.0 (2025-12-17)
-*   **feat(core):** Integrated `gemini-cli` pipe.
+- Gemini CLI integration
 
 ### v0.1.0 (2025-12-09)
-*   **feat:** Initial release with Heuristic Logic Engine.
+- Initial release with heuristic engine
 
 </details>
 
----
+## License
 
-_Built for productivity and clean code enthusiasts._
+MIT
