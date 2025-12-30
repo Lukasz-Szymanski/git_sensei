@@ -21,23 +21,24 @@ config_mgr = ConfigManager()
 # Conventional Commits Regex
 CONVENTIONAL_REGEX = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9_\-\./+]+\))?: .+$"
 
-# System prompt
-SYSTEM_PROMPT = (
-    "Analyze the git diff provided via stdin. Generate a professional Conventional Commit message adapted to the complexity of the changes.\n"
-    "Structure:\n"
-    "type(scope): concise summary of the change\n\n"
-    "[Body]\n"
-    "- detailed explanation of what changed in the code\n"
-    "- justification for why the change was made (if evident)\n\n"
-    "Guidelines:\n"
-    "1. Always start with a clear header line.\n"
-    "2. If the change implies logic modification, refactoring, or new features (regardless of file count), PROVIDE A DETAILED BODY.\n"
-    "3. Analyze the actual code changes (diff hunks) to describe 'what' and 'why', not just 'where'.\n"
-    "4. CRITICAL: Do NOT use markdown code blocks (```). Output raw text only.\n"
-    "5. STRICT STYLE RULES: Use IMPERATIVE mood (e.g., 'add' NOT 'added', 'fix' NOT 'fixed').\n"
-    "6. FORBIDDEN WORDS: Do NOT use 'I', 'we', 'me', 'my', 'this commit'. Start directly with the verb.\n"
-    "7. NO PREAMBLE: Start the response DIRECTLY with the commit type."
-)
+# Default system prompt (can be overridden per provider in .sensei.toml)
+DEFAULT_PROMPT = """OUTPUT ONLY THE COMMIT MESSAGE. NO EXPLANATIONS. NO MARKDOWN. NO COMMENTARY.
+
+Format:
+type(scope): short summary
+
+- bullet point describing change
+- another bullet if needed
+
+Rules:
+- Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+- Use imperative mood: "add" not "added", "fix" not "fixed"
+- First line max 72 characters
+- Body bullets explain what and why
+- NO preamble like "Here's the commit message:"
+- NO markdown code blocks
+- NO "I", "we", "this commit"
+- Start response DIRECTLY with the type (feat/fix/etc)"""
 
 def extract_issue_id() -> Optional[str]:
     """Extracts Jira-like issue ID (PROJ-123) from the current git branch name."""
@@ -131,7 +132,9 @@ def commit(
 
     # 3. Execute AI
     typer.echo("Thinking...")
-    raw_message = ai_engine.execute(diff, SYSTEM_PROMPT)
+    # Use provider-specific prompt if defined, otherwise default
+    prompt = provider_cfg.get("prompt", DEFAULT_PROMPT)
+    raw_message = ai_engine.execute(diff, prompt)
 
     if raw_message:
         message = clean_response(raw_message)

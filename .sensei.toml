@@ -1,31 +1,60 @@
 # .sensei.toml - Global Configuration
 
 [core]
-# Domyślny provider. Możesz go nadpisać flagą: sensei commit --provider claude
 default_provider = "gemini"
 
-# Czy sprawdzać sekrety przed wysłaniem? (W przyszłości)
-enable_secrets_check = true
-
 [providers.gemini]
-description = "Oficjalny Google Gemini CLI"
-# To CLI nie obsluguje flagi --system. Przekazujemy prompt jako argument pozycyjny.
+description = "Google Gemini CLI"
 command = "gemini \"{system}\""
+prompt = """Generate a git commit message for the diff below.
+
+OUTPUT ONLY THE COMMIT MESSAGE - no explanations, no markdown, no commentary.
+
+Format: type(scope): summary
+
+Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+Use imperative mood (add, fix, update - not added, fixed, updated).
+Max 72 chars first line. Add bullet points for details if needed.
+
+START DIRECTLY with the commit type. No preamble."""
 
 [providers.claude]
 description = "Claude Code CLI"
-# Oficjalne CLI Anthropic - claude code
 command = "claude --print \"{system}\""
+prompt = """OUTPUT ONLY THE COMMIT MESSAGE. NO EXPLANATIONS. NO MARKDOWN.
+
+Format:
+type(scope): short summary
+
+- bullet point describing change
+
+Rules:
+- Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+- Imperative mood: "add" not "added"
+- Max 72 chars first line
+- NO preamble like "Here's the commit message:"
+- Start DIRECTLY with type (feat/fix/etc)"""
 
 [providers.openai]
 description = "OpenAI GPT-4 via CLI"
-# Przykład: chatgpt-cli
 command = "chatgpt -m gpt-4 --system \"{system}\""
+prompt = """You are a commit message generator. Output ONLY the commit message, nothing else.
+
+Format: type(scope): summary
+
+- Details as bullet points
+
+Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+Use imperative mood. Max 72 chars first line. No markdown. No explanations."""
 
 [providers.local]
 description = "Local AI (Ollama)"
-command = "ollama run llama3 \"{system}\n\nHere is the diff:\n\""
+command = "ollama run llama3 \"{system}\""
+prompt = """Write a short git commit message for this diff.
+Format: type: summary
+Types: feat, fix, docs, refactor, chore
+One line only. No explanation."""
 
 [providers.echo]
-description = "Debug - tylko wyświetla prompt i diff"
+description = "Debug - shows prompt and diff"
 command = "cat"
