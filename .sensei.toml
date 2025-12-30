@@ -13,9 +13,9 @@ description = "Oficjalny Google Gemini CLI"
 command = "gemini \"{system}\""
 
 [providers.claude]
-description = "Anthropic Claude (via llm tool or custom wrapper)"
-# Przykład dla narzędzia 'simonw/llm'
-command = "llm -m claude-3-opus -s \"{system}\""
+description = "Claude Code CLI"
+# Oficjalne CLI Anthropic - claude code
+command = "claude --print \"{system}\""
 
 [providers.openai]
 description = "OpenAI GPT-4 via CLI"
