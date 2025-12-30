@@ -42,14 +42,8 @@ pip install -e .
 ## Quick Start
 
 ```bash
-# Stage your changes
-git add .
-
-# Generate commit message
-sensei commit
-
-# Or with a specific provider
-sensei commit --provider claude
+git add .        # Stage your changes
+sensei commit    # Generate commit with AI
 ```
 
 ## Commands
@@ -57,6 +51,8 @@ sensei commit --provider claude
 | Command | Description |
 |---------|-------------|
 | `sensei commit` | Generate and create a commit |
+| `sensei commit -p claude` | Use specific provider |
+| `sensei commit -d` | Dry run (preview only) |
 | `sensei use <provider>` | Set default AI provider |
 | `sensei ls` | List available providers |
 | `sensei check [provider]` | Verify provider is working |
@@ -64,17 +60,13 @@ sensei commit --provider claude
 ### Examples
 
 ```bash
-# Set Claude Code as default
-sensei use claude
-
-# List providers (* marks default)
-sensei ls
-
-# Check if provider works
-sensei check claude
-
-# Dry run (preview without committing)
-sensei commit --dry-run
+sensei commit                 # Use default provider
+sensei commit -p claude       # Use Claude for this commit
+sensei commit -d              # Preview without committing
+sensei use claude             # Set Claude as default
+sensei ls                     # List providers (* = default)
+sensei check                  # Check default provider
+sensei check claude           # Check specific provider
 ```
 
 ## Configuration
