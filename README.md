@@ -59,6 +59,8 @@ sensei commit    # Generate commit with AI
 | `sensei use <provider>` | Set default AI provider |
 | `sensei ls` | List available providers |
 | `sensei check [provider]` | Verify provider is working |
+| `sensei hook` | Install git hook for auto-generation |
+| `sensei hook -u` | Uninstall git hook |
 
 ### Examples
 
@@ -137,6 +139,10 @@ git_sensei/
 
 <details>
 <summary>Version history</summary>
+
+### v0.10.0 (2025-12-30)
+- Added `sensei hook` - install git hook for automatic message generation
+- Now `git commit` can auto-generate messages
 
 ### v0.9.0 (2025-12-30)
 - Added Secrets Shield - detects API keys, tokens, passwords in diffs
