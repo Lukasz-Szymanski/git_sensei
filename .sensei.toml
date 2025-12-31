@@ -16,7 +16,8 @@ Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
 Use imperative mood (add, fix, update - not added, fixed, updated).
 Max 72 chars first line. Add bullet points for details if needed.
 
-START DIRECTLY with the commit type. No preamble."""
+START DIRECTLY with the commit type. No preamble.
+NO signatures like "Generated with..." or "Co-Authored-By". No footer metadata."""
 
 [providers.claude]
 description = "Claude Code CLI"
@@ -33,7 +34,9 @@ Rules:
 - Imperative mood: "add" not "added"
 - Max 72 chars first line
 - NO preamble like "Here's the commit message:"
-- Start DIRECTLY with type (feat/fix/etc)"""
+- Start DIRECTLY with type (feat/fix/etc)
+- NO signatures like "Generated with..." or "Co-Authored-By"
+- NO footer metadata - just the commit message"""
 
 [providers.openai]
 description = "OpenAI GPT-4 via CLI"
@@ -45,7 +48,8 @@ Format: type(scope): summary
 - Details as bullet points
 
 Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
-Use imperative mood. Max 72 chars first line. No markdown. No explanations."""
+Use imperative mood. Max 72 chars first line. No markdown. No explanations.
+NO signatures like "Generated with..." or "Co-Authored-By". No footer metadata."""
 
 [providers.local]
 description = "Local AI (Ollama)"
@@ -53,7 +57,7 @@ command = "ollama run llama3 \"{system}\""
 prompt = """Write a short git commit message for this diff.
 Format: type: summary
 Types: feat, fix, docs, refactor, chore
-One line only. No explanation."""
+One line only. No explanation. No signatures or footer metadata."""
 
 [providers.echo]
 description = "Debug - shows prompt and diff"
