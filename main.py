@@ -3,6 +3,8 @@ import shutil
 import sys
 import os
 import re
+import subprocess
+import tempfile
 import typer
 from typing import Optional
 
@@ -100,7 +102,6 @@ def call_local_fallback(diff: str) -> str:
     """Fallback to local heuristic engine."""
     local_bridge = os.path.join(os.path.dirname(__file__), "local_bridge.py")
     if os.path.exists(local_bridge):
-        import subprocess
         proc = subprocess.Popen(
             [sys.executable, local_bridge],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -109,6 +110,93 @@ def call_local_fallback(diff: str) -> str:
         stdout, _ = proc.communicate(input=diff)
         return stdout.strip()
     return "chore: update files"
+
+
+def get_editor() -> Optional[str]:
+    """Get editor command using fallback chain.
+
+    Priority: $VISUAL -> $EDITOR -> git config core.editor -> platform default
+    """
+    # Check environment variables
+    editor = os.environ.get('VISUAL') or os.environ.get('EDITOR')
+    if editor:
+        return editor
+
+    # Check git config
+    try:
+        result = subprocess.run(
+            ['git', 'config', 'core.editor'],
+            capture_output=True, text=True, encoding='utf-8'
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except Exception:
+        pass
+
+    # Platform defaults
+    if sys.platform == 'win32':
+        return 'notepad'
+    else:
+        return 'nano'
+
+
+def edit_in_editor(message: str) -> Optional[str]:
+    """Open message in external editor for editing.
+
+    Returns edited message or None if editing failed/was cancelled.
+    """
+    editor = get_editor()
+    if not editor:
+        return None
+
+    # Create temporary file with commit message
+    with tempfile.NamedTemporaryFile(
+        mode='w',
+        suffix='.txt',
+        prefix='sensei_commit_',
+        delete=False,
+        encoding='utf-8'
+    ) as f:
+        f.write(message)
+        f.write('\n\n# Edit your commit message above.')
+        f.write('\n# Lines starting with # will be ignored.')
+        temp_path = f.name
+
+    try:
+        # Build editor command
+        if sys.platform == 'win32':
+            # Windows: use shell=True for complex commands
+            cmd = f'{editor} "{temp_path}"'
+            subprocess.run(cmd, shell=True, check=True)
+        else:
+            # POSIX: split command properly
+            import shlex
+            cmd_parts = shlex.split(editor)
+            cmd_parts.append(temp_path)
+            subprocess.run(cmd_parts, check=True)
+
+        # Read edited content
+        with open(temp_path, 'r', encoding='utf-8') as f:
+            edited = f.read()
+
+        # Remove comment lines and strip
+        lines = [line for line in edited.splitlines() if not line.startswith('#')]
+        result = '\n'.join(lines).strip()
+
+        return result if result else None
+
+    except subprocess.CalledProcessError:
+        typer.secho("Editor closed without saving.", fg=typer.colors.YELLOW)
+        return None
+    except Exception as e:
+        typer.secho(f"Editor error: {e}", fg=typer.colors.RED)
+        return None
+    finally:
+        # Cleanup temp file
+        try:
+            os.unlink(temp_path)
+        except Exception:
+            pass
 
 
 @app.command()
@@ -178,7 +266,11 @@ def commit(
                 typer.secho("Committed!", fg=typer.colors.GREEN)
             break
         elif choice in ('e', 'edit'):
-            message = typer.prompt("Message", default=message).strip()
+            edited = edit_in_editor(message)
+            if edited:
+                message = edited
+            else:
+                typer.secho("Edit cancelled, keeping original message.", fg=typer.colors.YELLOW)
         elif choice in ('r', 'retry'):
             raw = ai.execute(diff, prompt)
             if raw:
