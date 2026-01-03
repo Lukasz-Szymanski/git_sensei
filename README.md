@@ -50,17 +50,46 @@ git add .        # Stage your changes
 sensei commit    # Generate commit with AI
 ```
 
+### First Time Setup
+
+```
+$ sensei init
+Welcome to Git-Sensei!
+
+Select your AI provider:
+
+  1. Google Gemini (npm i -g @google/gemini-cli)
+  2. Claude Code (npm i -g @anthropic-ai/claude-code)
+  3. OpenAI GPT-4 (pip install chatgpt-cli)
+  4. Ollama (https://ollama.ai)
+
+Select provider [1]: 2
+
+Selected: Claude Code
+Testing connection... OK
+
+Config saved to ~/.sensei.toml
+Default provider: claude
+
+Ready! Run: git add . && sensei commit
+```
+
+The wizard will:
+- Detect existing configuration and ask before overwriting
+- Test the connection with a real AI request
+- Show installation instructions if the provider is not found
+
 ## Commands
 
-| Command                   | Description                  |
-| ------------------------- | ---------------------------- |
-| `sensei init`             | Interactive setup wizard     |
-| `sensei commit`           | Generate and create a commit |
-| `sensei commit -p claude` | Use specific provider        |
-| `sensei commit -d`        | Dry run (preview only)       |
-| `sensei use <provider>`   | Set default AI provider      |
-| `sensei ls`               | List available providers     |
-| `sensei check [provider]` | Verify provider is working   |
+| Command                   | Description                            |
+| ------------------------- | -------------------------------------- |
+| `sensei init`             | Interactive setup wizard (with connection test) |
+| `sensei commit`           | Generate and create a commit           |
+| `sensei commit -p claude` | Use specific provider                  |
+| `sensei commit -d`        | Dry run (preview only)                 |
+| `sensei use <provider>`   | Set default AI provider                |
+| `sensei ls`               | List available providers               |
+| `sensei check [provider]` | Verify provider is working             |
 
 ### Examples
 
@@ -151,6 +180,12 @@ git_sensei/
 
 <details>
 <summary>Version history</summary>
+
+### v0.11.0 (2026-01-03)
+
+- Enhanced `sensei init` wizard with real connection testing
+- Detects existing config and asks before overwriting
+- Shows installation instructions when provider is not found
 
 ### v0.10.0 (2025-12-30)
 

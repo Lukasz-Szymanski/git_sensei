@@ -196,6 +196,14 @@ def init():
     """Interactive setup wizard."""
     typer.echo("Welcome to Git-Sensei!\n")
 
+    # Check for existing config
+    config_path = os.path.expanduser("~/.sensei.toml")
+    if os.path.exists(config_path):
+        typer.secho("Existing configuration found.", fg=typer.colors.YELLOW)
+        if not typer.confirm("Overwrite?", default=False):
+            typer.echo("Keeping existing config.")
+            return
+
     providers = {
         "1": ("gemini", "Google Gemini", "npm i -g @google/gemini-cli"),
         "2": ("claude", "Claude Code", "npm i -g @anthropic-ai/claude-code"),
@@ -203,22 +211,46 @@ def init():
         "4": ("ollama", "Ollama (local)", "https://ollama.ai"),
     }
 
+    typer.echo("Select your AI provider:\n")
     for key, (_, name, install) in providers.items():
         typer.echo(f"  {key}. {name} ({install})")
 
     choice = typer.prompt("\nSelect provider", default="1")
     if choice not in providers:
-        typer.echo("Invalid choice.")
+        typer.secho("Invalid choice.", fg=typer.colors.RED)
         sys.exit(1)
 
-    selected, name, _ = providers[choice]
+    selected, name, install_cmd = providers[choice]
     typer.echo(f"\nSelected: {name}")
 
+    # Get provider config for connection test
+    provider_cfg = config_mgr.get_provider_config(selected)
+    if not provider_cfg:
+        typer.secho(f"Provider '{selected}' not configured.", fg=typer.colors.RED)
+        sys.exit(1)
+
+    # Test connection
+    typer.echo("Testing connection... ", nl=False)
+    ai = AIProvider(selected, provider_cfg)
+    success, msg = ai.test_connection()
+
+    if success:
+        typer.secho("OK", fg=typer.colors.GREEN)
+    else:
+        typer.secho("FAILED", fg=typer.colors.RED)
+        typer.echo(f"  {msg}")
+        typer.echo(f"\nInstall: {install_cmd}")
+        if not typer.confirm("\nContinue anyway?", default=False):
+            sys.exit(1)
+
+    # Save config
     if config_mgr.set_default_provider(selected):
-        typer.secho(f"Default set to '{selected}'.", fg=typer.colors.GREEN)
+        typer.secho(f"\nConfig saved to {config_path}", fg=typer.colors.GREEN)
+        typer.echo(f"Default provider: {selected}")
         typer.echo("\nReady! Run: git add . && sensei commit")
     else:
         typer.secho("Setup failed.", fg=typer.colors.RED)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

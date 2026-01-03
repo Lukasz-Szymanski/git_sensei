@@ -102,6 +102,113 @@ class TestListProvidersCommand(unittest.TestCase):
         self.assertTrue(claude_line.startswith("*"))
 
 
+class TestInitCommand(unittest.TestCase):
+    """Tests for 'sensei init' command."""
+
+    @patch("main.AIProvider")
+    @patch("main.config_mgr")
+    @patch("os.path.exists")
+    def test_init_new_config_success(self, mock_exists, mock_config, mock_provider_class):
+        """'sensei init' should create new config when none exists."""
+        mock_exists.return_value = False
+        mock_config.get_provider_config.return_value = {
+            "command": "gemini \"{system}\""
+        }
+        mock_config.set_default_provider.return_value = True
+
+        mock_provider = MagicMock()
+        mock_provider.test_connection.return_value = (True, "Connection successful")
+        mock_provider_class.return_value = mock_provider
+
+        result = runner.invoke(app, ["init"], input="1\n")
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Config saved", result.stdout)
+        mock_config.set_default_provider.assert_called_once_with("gemini")
+
+    @patch("main.AIProvider")
+    @patch("main.config_mgr")
+    @patch("os.path.exists")
+    def test_init_existing_config_overwrite(self, mock_exists, mock_config, mock_provider_class):
+        """'sensei init' should overwrite when user confirms."""
+        mock_exists.return_value = True
+        mock_config.get_provider_config.return_value = {
+            "command": "claude \"{system}\""
+        }
+        mock_config.set_default_provider.return_value = True
+
+        mock_provider = MagicMock()
+        mock_provider.test_connection.return_value = (True, "Connection successful")
+        mock_provider_class.return_value = mock_provider
+
+        result = runner.invoke(app, ["init"], input="y\n2\n")
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Config saved", result.stdout)
+        mock_config.set_default_provider.assert_called_once_with("claude")
+
+    @patch("os.path.exists")
+    def test_init_existing_config_keep(self, mock_exists):
+        """'sensei init' should keep existing config when user declines."""
+        mock_exists.return_value = True
+
+        result = runner.invoke(app, ["init"], input="n\n")
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Keeping existing config", result.stdout)
+
+    @patch("main.AIProvider")
+    @patch("main.config_mgr")
+    @patch("os.path.exists")
+    def test_init_connection_failed_continue(self, mock_exists, mock_config, mock_provider_class):
+        """'sensei init' should allow continuing after failed connection test."""
+        mock_exists.return_value = False
+        mock_config.get_provider_config.return_value = {
+            "command": "gemini \"{system}\""
+        }
+        mock_config.set_default_provider.return_value = True
+
+        mock_provider = MagicMock()
+        mock_provider.test_connection.return_value = (False, "Command not found in PATH")
+        mock_provider_class.return_value = mock_provider
+
+        result = runner.invoke(app, ["init"], input="1\ny\n")
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("FAILED", result.stdout)
+        self.assertIn("Config saved", result.stdout)
+
+    @patch("main.AIProvider")
+    @patch("main.config_mgr")
+    @patch("os.path.exists")
+    def test_init_connection_failed_abort(self, mock_exists, mock_config, mock_provider_class):
+        """'sensei init' should abort when user declines after failed connection."""
+        mock_exists.return_value = False
+        mock_config.get_provider_config.return_value = {
+            "command": "gemini \"{system}\""
+        }
+
+        mock_provider = MagicMock()
+        mock_provider.test_connection.return_value = (False, "Command not found in PATH")
+        mock_provider_class.return_value = mock_provider
+
+        result = runner.invoke(app, ["init"], input="1\nn\n")
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("FAILED", result.stdout)
+
+    @patch("main.config_mgr")
+    @patch("os.path.exists")
+    def test_init_invalid_choice(self, mock_exists, mock_config):
+        """'sensei init' should fail on invalid provider choice."""
+        mock_exists.return_value = False
+
+        result = runner.invoke(app, ["init"], input="9\n")
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("Invalid choice", result.stdout)
+
+
 class TestCheckCommand(unittest.TestCase):
     """Tests for 'sensei check' command."""
 

@@ -78,10 +78,31 @@ class AIProvider:
         """
         if not self.command_template:
             return False
-            
+
         # Extract just the executable (first word)
         executable = shlex.split(self.command_template)[0]
-        
+
         # Using shutil.which is safer than running it
         import shutil
         return shutil.which(executable) is not None
+
+    def test_connection(self) -> tuple:
+        """Test real connection to AI provider with simple prompt.
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        if not self.check_health():
+            return False, f"Command not found in PATH"
+
+        test_prompt = "Reply with exactly one word: OK"
+        try:
+            result = self.execute("test", test_prompt)
+            if result and "ok" in result.lower():
+                return True, "Connection successful"
+            elif result:
+                return False, f"Unexpected response: {result[:100]}"
+            else:
+                return False, "No response from provider"
+        except Exception as e:
+            return False, str(e)
