@@ -11,9 +11,11 @@ A CLI tool that generates professional commit messages using any AI provider (Ge
 - **Universal Providers** - Switch between Gemini, Claude Code, OpenAI, or local LLMs with one command
 - **Secrets Shield** - Scans diffs for API keys, tokens, passwords before sending to AI
 - **Smart Context** - Auto-links commits to issue IDs from branch names (Jira, GitHub, GitLab, Linear, Azure DevOps)
+- **Branch Type Detection** - Auto-detects commit type from branch prefix (`feature/` → feat, `fix/` → fix)
 - **Conventional Commits** - Generates properly formatted commit messages
 - **Offline Fallback** - Heuristic engine works when AI is unavailable
 - **Interactive Review** - Edit, retry, or approve before committing
+- **Editor Integration** - Edit commit messages in your preferred IDE (VS Code, PyCharm, etc.)
 
 ## Installation
 
@@ -152,16 +154,64 @@ Each AI model may need different prompting style. Adjust per provider in config.
 After generating a message, you'll see:
 
 ```
+Context: Type: feat; Closes issue #42
 --------------------------------------------------
-Suggested: feat(auth): add user login endpoint
+feat(auth): add user login endpoint
+
+Implement JWT-based authentication with secure token handling.
+
+- Add login endpoint with email/password validation
+- Implement JWT token generation and verification
+- Add middleware for protected routes
+
+Closes #42
 --------------------------------------------------
 Action? [y]es, [n]o, [e]dit, [r]etry
 ```
 
 - **y** - Commit with this message
 - **n** - Abort
-- **e** - Edit the message
+- **e** - Edit in external editor (VS Code, PyCharm, etc.)
 - **r** - Regenerate with AI
+
+### Smart Context Detection
+
+Sensei automatically detects context from your branch name:
+
+| Branch Name | Detected Context |
+|-------------|------------------|
+| `feature/42-add-login` | Type: feat, Closes #42 |
+| `fix/123-crash-bug` | Type: fix, Closes #123 |
+| `hotfix/PROJ-456-security` | Type: hotfix, Refs: PROJ-456 |
+| `refactor/cleanup` | Type: refactor |
+
+This context is passed to the AI for better commit messages.
+
+### Editor Integration
+
+When you press `[e]dit`, Sensei opens the commit message in your configured editor.
+
+**Setup your editor (one-time):**
+
+```bash
+# VS Code
+git config --global core.editor "code --wait"
+
+# PyCharm
+git config --global core.editor "pycharm --wait"
+
+# Cursor
+git config --global core.editor "cursor --wait"
+
+# Vim
+git config --global core.editor "vim"
+```
+
+Sensei uses this priority to find your editor:
+1. `$VISUAL` environment variable
+2. `$EDITOR` environment variable
+3. `git config core.editor`
+4. Platform default (notepad on Windows, nano on Linux/Mac)
 
 ## Project Structure
 
@@ -180,6 +230,18 @@ git_sensei/
 
 <details>
 <summary>Version history</summary>
+
+### v0.12.0 (2026-01-03)
+
+- External editor integration for `[e]dit` option (VS Code, PyCharm, Cursor, etc.)
+- Fallback chain for editor detection: $VISUAL → $EDITOR → git config → platform default
+
+### v0.11.1 (2026-01-03)
+
+- Smart Context Detection - auto-detects branch type (feature/ → feat, fix/ → fix)
+- Universal prompt for all AI providers - consistent, detailed commit messages
+- Context info displayed before generating (Type, Issue ID, branch status)
+- Improved issue ID detection from branch names (feature/1-description → #1)
 
 ### v0.11.0 (2026-01-03)
 
