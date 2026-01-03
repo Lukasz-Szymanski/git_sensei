@@ -9,7 +9,7 @@ from typing import Optional
 from config import ConfigManager
 from providers import AIProvider
 from secrets import scan_diff, format_warning
-from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit
+from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context
 
 app = typer.Typer(
     help="Git-Sensei: AI-powered commit message generator. Quick start: git add . && sensei commit",
@@ -20,19 +20,55 @@ config_mgr = ConfigManager()
 
 CONVENTIONAL_REGEX = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9_\-\./+]+\))?: .+$"
 
-DEFAULT_PROMPT = """OUTPUT ONLY THE COMMIT MESSAGE. NO EXPLANATIONS. NO MARKDOWN. NO COMMENTARY.
+DEFAULT_PROMPT = """You are a professional git commit message generator.
 
-Format:
-type(scope): short summary
+TASK: Analyze the git diff and generate a complete, professional commit message.
 
-- bullet point describing change
+OUTPUT FORMAT (output ONLY the commit message, nothing else):
 
-Rules:
-- Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
-- Use imperative mood: "add" not "added"
+type(scope): concise summary (max 72 chars)
+
+Brief paragraph explaining WHAT changed and WHY (2-3 sentences).
+
+- Bullet point for specific change 1
+- Bullet point for specific change 2
+- Bullet point for specific change 3
+
+{issue_footer}
+
+RULES:
+- Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+- Use imperative mood: "add", "fix", "update" (not "added", "fixed")
 - First line max 72 characters
-- NO preamble, NO markdown, NO "I/we/this commit"
-- Start DIRECTLY with the type"""
+- Be specific about what changed and why
+- Group related changes in bullet points
+- NO markdown formatting, NO preamble like "Here's the commit message:"
+- Start DIRECTLY with the type (feat/fix/etc)
+- NO signatures like "Generated with..." or "Co-Authored-By"
+
+{context}"""
+
+
+def build_prompt_with_context(base_prompt: str, git_context: dict) -> str:
+    """Build final prompt with git context injected."""
+    context_lines = []
+
+    if git_context.get('context_summary'):
+        context_lines.append(f"CONTEXT: {git_context['context_summary']}")
+
+    if git_context.get('branch_type'):
+        context_lines.append(f"SUGGESTED TYPE: {git_context['branch_type']}")
+
+    context_str = '\n'.join(context_lines) if context_lines else ''
+
+    # Handle issue footer
+    issue_id = git_context.get('issue_id')
+    if issue_id:
+        issue_footer = f"Closes {issue_id}"
+    else:
+        issue_footer = ""
+
+    return base_prompt.replace('{context}', context_str).replace('{issue_footer}', issue_footer)
 
 
 def strip_signatures(message: str) -> str:
@@ -109,19 +145,22 @@ def commit(
         if not typer.confirm("Continue anyway?", default=False):
             sys.exit(1)
 
+    # Gather git context
+    git_context = get_git_context()
+
+    # Show context info
+    if git_context.get('context_summary'):
+        typer.secho(f"Context: {git_context['context_summary']}", fg=typer.colors.CYAN)
+
     # Generate message
     typer.echo("Thinking...")
-    prompt = provider_cfg.get("prompt", DEFAULT_PROMPT)
+    # Priority: provider-specific prompt > universal prompt > default
+    base_prompt = provider_cfg.get("prompt") or config_mgr.get_universal_prompt() or DEFAULT_PROMPT
+    prompt = build_prompt_with_context(base_prompt, git_context)
     ai = AIProvider(provider_name, provider_cfg)
     raw = ai.execute(diff, prompt)
 
     message = clean_response(raw) if raw else call_local_fallback(diff)
-
-    # Add issue reference
-    branch = get_current_branch()
-    issue_id = extract_issue_id(branch)
-    if issue_id:
-        message += f"\n\nRefs: {issue_id}"
 
     # Review loop
     while True:
