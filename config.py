@@ -16,6 +16,35 @@ DEFAULT_CONFIG = {
     "core": {
         "default_provider": "gemini"
     },
+    "prompts": {
+        "universal": """You are a professional git commit message generator.
+
+TASK: Analyze the git diff and generate a complete, professional commit message.
+
+OUTPUT FORMAT (output ONLY the commit message, nothing else):
+
+type(scope): concise summary (max 72 chars)
+
+Brief paragraph explaining WHAT changed and WHY (2-3 sentences).
+
+- Bullet point for specific change 1
+- Bullet point for specific change 2
+- Bullet point for specific change 3
+
+{issue_footer}
+
+RULES:
+- Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+- Use imperative mood: "add", "fix", "update" (not "added", "fixed")
+- First line max 72 characters
+- Be specific about what changed and why
+- Group related changes in bullet points
+- NO markdown formatting, NO preamble like "Here's the commit message:"
+- Start DIRECTLY with the type (feat/fix/etc)
+- NO signatures like "Generated with..." or "Co-Authored-By"
+
+{context}"""
+    },
     "providers": {
         "gemini": {
             "description": "Google Gemini CLI",
@@ -76,6 +105,10 @@ class ConfigManager:
             name: data.get("description", "")
             for name, data in self.config.get("providers", {}).items()
         }
+
+    def get_universal_prompt(self) -> str:
+        """Get the universal prompt template."""
+        return self.config.get("prompts", {}).get("universal", "")
 
     def get_config_path(self) -> str:
         """Returns the path to user's config file (creates if needed)."""

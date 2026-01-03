@@ -3,61 +3,51 @@
 [core]
 default_provider = "gemini"
 
+# Universal prompt used by all providers (can be overridden per provider)
+[prompts]
+universal = """You are a professional git commit message generator.
+
+TASK: Analyze the git diff and generate a complete, professional commit message.
+
+OUTPUT FORMAT (output ONLY the commit message, nothing else):
+
+type(scope): concise summary (max 72 chars)
+
+Brief paragraph explaining WHAT changed and WHY (2-3 sentences).
+
+- Bullet point for specific change 1
+- Bullet point for specific change 2
+- Bullet point for specific change 3
+
+{issue_footer}
+
+RULES:
+- Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+- Use imperative mood: "add", "fix", "update" (not "added", "fixed")
+- First line max 72 characters
+- Be specific about what changed and why
+- Group related changes in bullet points
+- NO markdown formatting, NO preamble like "Here's the commit message:"
+- Start DIRECTLY with the type (feat/fix/etc)
+- NO signatures like "Generated with..." or "Co-Authored-By"
+
+{context}"""
+
 [providers.gemini]
 description = "Google Gemini CLI"
 command = "gemini \"{system}\""
-prompt = """Generate a git commit message for the diff below.
-
-OUTPUT ONLY THE COMMIT MESSAGE - no explanations, no markdown, no commentary.
-
-Format: type(scope): summary
-
-Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
-Use imperative mood (add, fix, update - not added, fixed, updated).
-Max 72 chars first line. Add bullet points for details if needed.
-
-START DIRECTLY with the commit type. No preamble.
-NO signatures like "Generated with..." or "Co-Authored-By". No footer metadata."""
 
 [providers.claude]
 description = "Claude Code CLI"
 command = "claude --print \"{system}\""
-prompt = """OUTPUT ONLY THE COMMIT MESSAGE. NO EXPLANATIONS. NO MARKDOWN.
-
-Format:
-type(scope): short summary
-
-- bullet point describing change
-
-Rules:
-- Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
-- Imperative mood: "add" not "added"
-- Max 72 chars first line
-- NO preamble like "Here's the commit message:"
-- Start DIRECTLY with type (feat/fix/etc)
-- NO signatures like "Generated with..." or "Co-Authored-By"
-- NO footer metadata - just the commit message"""
 
 [providers.openai]
 description = "OpenAI GPT-4 via CLI"
 command = "chatgpt -m gpt-4 --system \"{system}\""
-prompt = """You are a commit message generator. Output ONLY the commit message, nothing else.
-
-Format: type(scope): summary
-
-- Details as bullet points
-
-Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
-Use imperative mood. Max 72 chars first line. No markdown. No explanations.
-NO signatures like "Generated with..." or "Co-Authored-By". No footer metadata."""
 
 [providers.local]
 description = "Local AI (Ollama)"
 command = "ollama run llama3 \"{system}\""
-prompt = """Write a short git commit message for this diff.
-Format: type: summary
-Types: feat, fix, docs, refactor, chore
-One line only. No explanation. No signatures or footer metadata."""
 
 [providers.echo]
 description = "Debug - shows prompt and diff"
