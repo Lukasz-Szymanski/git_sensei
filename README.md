@@ -89,20 +89,23 @@ The wizard will:
 | `sensei commit`           | Generate and create a commit           |
 | `sensei commit -p claude` | Use specific provider                  |
 | `sensei commit -d`        | Dry run (preview only)                 |
+| `sensei commit --emoji`   | Generate commit with Gitmoji prefix    |
 | `sensei use <provider>`   | Set default AI provider                |
 | `sensei ls`               | List available providers               |
 | `sensei check [provider]` | Verify provider is working             |
+| `sensei install-hook`     | Install as git `prepare-commit-msg` hook |
 
 ### Examples
 
 ```bash
-sensei commit                 # Use default provider
-sensei commit -p claude       # Use Claude for this commit
+sensei commit                 # Use default provider (Antigravity CLI)
+sensei commit -p gemini-api   # Use Native Gemini API (requires GEMINI_API_KEY)
+sensei commit --emoji         # Generate with emojis (e.g. ✨ feat: add login)
 sensei commit -d              # Preview without committing
-sensei use claude             # Set Claude as default
+sensei use gemini-api         # Set Gemini API as default
 sensei ls                     # List providers (* = default)
 sensei check                  # Check default provider
-sensei check claude           # Check specific provider
+sensei install-hook           # Set up standard git hook
 ```
 
 ## Configuration

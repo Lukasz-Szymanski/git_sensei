@@ -1,7 +1,7 @@
 # .sensei.toml - Global Configuration
 
 [core]
-default_provider = "gemini"
+default_provider = "antigravity"
 
 # Universal prompt used by all providers (can be overridden per provider)
 [prompts]
@@ -33,6 +33,20 @@ RULES:
 
 {context}"""
 
+[providers.antigravity]
+description = "Google Antigravity CLI"
+command = "agy -p \"{system}\""
+
+[providers.gemini-api]
+description = "Google Gemini API (Native)"
+api_type = "gemini"
+model = "gemini-1.5-flash"
+
+[providers.openai-api]
+description = "OpenAI API (Native)"
+api_type = "openai"
+model = "gpt-4o-mini"
+
 [providers.gemini]
 description = "Google Gemini CLI"
 command = "gemini \"{system}\""
@@ -45,7 +59,7 @@ command = "claude --print \"{system}\""
 description = "OpenAI GPT-4 via CLI"
 command = "chatgpt -m gpt-4 --system \"{system}\""
 
-[providers.local]
+[providers.ollama]
 description = "Local AI (Ollama)"
 command = "ollama run llama3 \"{system}\""
 

@@ -6,3 +6,8 @@ docs/plan.md
 __pycache__/
 docs
 
+# Python build and env artifacts
+.venv/
+*.egg-info/
+build/
+dist/

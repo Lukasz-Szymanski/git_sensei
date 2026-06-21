@@ -42,4 +42,4 @@ jobs:
 
       - name: Check syntax
         run: |
-          python -m py_compile main.py config.py providers.py secrets.py git_utils.py
+          python -m py_compile main.py config.py providers.py secrets_shield.py git_utils.py

@@ -4,7 +4,7 @@ setup(
     name="git-sensei",
     version="0.10.0",
     packages=find_packages(),
-    py_modules=["main", "config", "providers", "git_utils", "secrets", "local_bridge"],
+    py_modules=["main", "config", "providers", "git_utils", "secrets_shield", "local_bridge"],
     install_requires=[
         "typer>=0.9.0",
         "tomli>=2.0.1; python_version < '3.11'",

@@ -21,6 +21,16 @@ class TestConfigManager(unittest.TestCase):
             cm.config = {"core": {"default_provider": "gemini"}, "providers": {}}
             self.assertEqual(cm.get_default_provider(), "gemini")
 
+    def test_default_config_providers(self):
+        """Default config should contain key CLI providers like claude, openai, and ollama."""
+        from config import DEFAULT_CONFIG
+        providers = DEFAULT_CONFIG.get("providers", {})
+        self.assertIn("claude", providers)
+        self.assertIn("openai", providers)
+        self.assertIn("ollama", providers)
+        self.assertIn("gemini", providers)
+        self.assertIn("antigravity", providers)
+
     def test_list_providers(self):
         """list_providers should return dict of name -> description."""
         with patch.object(ConfigManager, 'load_config'):

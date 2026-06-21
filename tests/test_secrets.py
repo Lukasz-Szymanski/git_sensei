@@ -4,7 +4,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from secrets import scan_diff, calculate_entropy, check_high_entropy, SecretMatch
+from secrets_shield import scan_diff, calculate_entropy, check_high_entropy, SecretMatch
 
 
 class TestSecretsDetection(unittest.TestCase):

@@ -10,7 +10,7 @@ from typing import Optional
 
 from config import ConfigManager
 from providers import AIProvider
-from secrets import scan_diff, format_warning
+from secrets_shield import scan_diff, format_warning
 from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context
 
 app = typer.Typer(
@@ -96,6 +96,31 @@ def clean_response(raw_output: str) -> str:
     else:
         message = raw_output.strip()
     return strip_signatures(message)
+
+
+GITMOJI_MAP = {
+    "feat": "✨",
+    "fix": "🐛",
+    "docs": "📝",
+    "style": "🎨",
+    "refactor": "♻️",
+    "perf": "⚡",
+    "test": "✅",
+    "build": "🏗️",
+    "ci": "💚",
+    "chore": "🔧",
+    "revert": "⏪"
+}
+
+def apply_gitmoji(message: str) -> str:
+    """Insert Gitmoji prefix to conventional commit message."""
+    match = re.match(r"^([a-z0-9_\-]+)(\([a-z0-9_\-\./+]+\))?:", message, re.IGNORECASE)
+    if match:
+        commit_type = match.group(1).lower()
+        emoji = GITMOJI_MAP.get(commit_type)
+        if emoji:
+            return f"{emoji} {message}"
+    return message
 
 
 def call_local_fallback(diff: str) -> str:
@@ -202,7 +227,9 @@ def edit_in_editor(message: str) -> Optional[str]:
 @app.command()
 def commit(
     provider: str = typer.Option(None, "-p", "--provider", help="AI provider to use."),
-    dry_run: bool = typer.Option(False, "-d", "--dry-run", help="Preview without committing.")
+    dry_run: bool = typer.Option(False, "-d", "--dry-run", help="Preview without committing."),
+    emoji: Optional[bool] = typer.Option(None, "--emoji/--no-emoji", help="Enable/disable Gitmoji support."),
+    raw: bool = typer.Option(False, "--raw", help="Output raw commit message to stdout and exit.")
 ):
     """Generate a commit message using AI."""
     if not shutil.which("git"):
@@ -218,37 +245,52 @@ def commit(
         typer.echo("Use 'sensei ls' to see available providers.")
         sys.exit(1)
 
-    typer.echo(f"Using: {provider_name}")
+    if not raw:
+        typer.echo(f"Using: {provider_name}")
 
     # Get diff
     diff = get_staged_diff()
     if not diff:
-        typer.secho("No staged changes.", fg=typer.colors.YELLOW)
+        if not raw:
+            typer.secho("No staged changes.", fg=typer.colors.YELLOW)
         sys.exit(0)
 
     # Secrets check
     secrets = scan_diff(diff)
     if secrets:
-        typer.secho(format_warning(secrets), fg=typer.colors.YELLOW)
-        if not typer.confirm("Continue anyway?", default=False):
-            sys.exit(1)
+        if not raw:
+            typer.secho(format_warning(secrets), fg=typer.colors.YELLOW)
+            if not typer.confirm("Continue anyway?", default=False):
+                sys.exit(1)
+        else:
+            pass
 
     # Gather git context
     git_context = get_git_context()
 
     # Show context info
-    if git_context.get('context_summary'):
+    if not raw and git_context.get('context_summary'):
         typer.secho(f"Context: {git_context['context_summary']}", fg=typer.colors.CYAN)
 
     # Generate message
-    typer.echo("Thinking...")
+    if not raw:
+        typer.echo("Thinking...")
     # Priority: provider-specific prompt > universal prompt > default
     base_prompt = provider_cfg.get("prompt") or config_mgr.get_universal_prompt() or DEFAULT_PROMPT
     prompt = build_prompt_with_context(base_prompt, git_context)
     ai = AIProvider(provider_name, provider_cfg)
-    raw = ai.execute(diff, prompt)
+    raw_response = ai.execute(diff, prompt)
 
-    message = clean_response(raw) if raw else call_local_fallback(diff)
+    message = clean_response(raw_response) if raw_response else call_local_fallback(diff)
+
+    # Apply Gitmoji if enabled
+    use_emoji = emoji if emoji is not None else config_mgr.config.get("core", {}).get("emoji", False)
+    if use_emoji:
+        message = apply_gitmoji(message)
+
+    if raw:
+        print(message)
+        sys.exit(0)
 
     # Review loop
     while True:
@@ -259,7 +301,7 @@ def commit(
         if dry_run:
             break
 
-        choice = typer.prompt("[y]es, [n]o, [e]dit, [r]etry", default="y").lower()
+        choice = typer.prompt("[y]es, [n]o, [e]edit, [r]etry", default="y").lower()
 
         if choice in ('y', 'yes'):
             if create_commit(message):
@@ -275,6 +317,8 @@ def commit(
             raw = ai.execute(diff, prompt)
             if raw:
                 message = clean_response(raw)
+                if use_emoji:
+                    message = apply_gitmoji(message)
         elif choice in ('n', 'no'):
             typer.secho("Aborted.", fg=typer.colors.RED)
             break
@@ -381,6 +425,53 @@ def init():
         typer.echo("\nReady! Run: git add . && sensei commit")
     else:
         typer.secho("Setup failed.", fg=typer.colors.RED)
+        sys.exit(1)
+
+
+@app.command(name="install-hook")
+def install_hook():
+    """Install git prepare-commit-msg hook in current repository."""
+    git_dir = ".git"
+    if not os.path.exists(git_dir):
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--git-dir"],
+                capture_output=True, text=True, check=True
+            )
+            git_dir = result.stdout.strip()
+        except Exception:
+            typer.secho("Error: Not a git repository!", fg=typer.colors.RED)
+            sys.exit(1)
+
+    hooks_dir = os.path.join(git_dir, "hooks")
+    os.makedirs(hooks_dir, exist_ok=True)
+    hook_path = os.path.join(hooks_dir, "prepare-commit-msg")
+
+    hook_content = """#!/bin/sh
+# Git-Sensei Hook
+# Automatically generated by 'sensei install-hook'
+
+COMMIT_MSG_FILE="$1"
+COMMIT_SOURCE="$2"
+
+if [ -z "$COMMIT_SOURCE" ]; then
+  if command -v sensei >/dev/null 2>&1; then
+    sensei commit --raw > "$COMMIT_MSG_FILE"
+  else
+    python "{script_path}" commit --raw > "$COMMIT_MSG_FILE"
+  fi
+fi
+""".format(script_path=os.path.abspath(__file__))
+
+    try:
+        with open(hook_path, "w", encoding="utf-8") as f:
+            f.write(hook_content)
+        import stat
+        st = os.stat(hook_path)
+        os.chmod(hook_path, st.st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+        typer.secho(f"Hook installed successfully at {hook_path}", fg=typer.colors.GREEN)
+    except Exception as e:
+        typer.secho(f"Failed to install hook: {e}", fg=typer.colors.RED)
         sys.exit(1)
 
 

@@ -84,7 +84,7 @@ def scan_diff(diff: str) -> List[SecretMatch]:
     current_file = ""
 
     # Files to skip (contain regex patterns that look like secrets)
-    skip_files = {"secrets.py", "test_secrets.py"}
+    skip_files = {"secrets_shield.py", "test_secrets.py"}
 
     lines = diff.split('\n')
     line_num = 0

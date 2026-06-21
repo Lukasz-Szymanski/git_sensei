@@ -14,7 +14,7 @@ except ImportError:
 
 DEFAULT_CONFIG = {
     "core": {
-        "default_provider": "gemini"
+        "default_provider": "antigravity"
     },
     "prompts": {
         "universal": """You are a professional git commit message generator.
@@ -46,9 +46,35 @@ RULES:
 {context}"""
     },
     "providers": {
+        "antigravity": {
+            "description": "Google Antigravity CLI",
+            "command": "agy -p \"{system}\""
+        },
+        "gemini-api": {
+            "description": "Google Gemini API (Native)",
+            "api_type": "gemini",
+            "model": "gemini-1.5-flash"
+        },
+        "openai-api": {
+            "description": "OpenAI API (Native)",
+            "api_type": "openai",
+            "model": "gpt-4o-mini"
+        },
         "gemini": {
             "description": "Google Gemini CLI",
             "command": "gemini --system \"{system}\""
+        },
+        "claude": {
+            "description": "Claude Code CLI",
+            "command": "claude --print \"{system}\""
+        },
+        "openai": {
+            "description": "OpenAI GPT-4 via CLI",
+            "command": "chatgpt -m gpt-4 --system \"{system}\""
+        },
+        "ollama": {
+            "description": "Local AI (Ollama)",
+            "command": "ollama run llama3 \"{system}\""
         },
         "echo": {
             "description": "Debug (Echo)",
