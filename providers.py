@@ -29,7 +29,8 @@ class AIProvider:
             raise ValueError(f"Provider '{self.name}' has no command or api_type defined.")
 
         # 1. Prepare Command
-        final_cmd_str = self.command_template.replace("{system}", system_prompt)
+        escaped_prompt = system_prompt.replace('"', '\\"')
+        final_cmd_str = self.command_template.replace("{system}", escaped_prompt)
         
         # 2. Execute
         try:
