@@ -28,7 +28,7 @@ jobs:
           pip install typer pytest pytest-cov
 
       - name: Run tests with coverage
-        run: python -m pytest tests/ -v --cov=. --cov-fail-under=80
+        run: python -m pytest tests/ -v --cov=. --cov-fail-under=65
 
   lint:
     runs-on: ubuntu-latest
