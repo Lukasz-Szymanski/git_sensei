@@ -234,6 +234,11 @@ git_sensei/
 <details>
 <summary>Version history</summary>
 
+### v0.13.0 (2026-07-01)
+
+- Enhanced Secrets Shield with configurable behavior (`block`, `warn`, `ignore`)
+- Added support for custom secret regex patterns via `custom_patterns` configuration
+
 ### v0.12.0 (2026-01-03)
 
 - External editor integration for `[e]dit` option (VS Code, PyCharm, Cursor, etc.)
