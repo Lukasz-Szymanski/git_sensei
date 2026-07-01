@@ -30,7 +30,7 @@ class TestEndToEnd(unittest.TestCase):
     def tearDown(self):
         # Restore cwd and remove temp dir
         os.chdir(self.original_cwd)
-        shutil.rmtree(self.test_dir)
+        shutil.rmtree(self.test_dir, ignore_errors=True)
 
     @patch("main.AIProvider")
     def test_full_commit_flow(self, mock_provider_class):

@@ -24,7 +24,7 @@ class TestUseCommand(unittest.TestCase):
 
     def tearDown(self):
         """Remove temporary directory."""
-        shutil.rmtree(self.test_dir)
+        shutil.rmtree(self.test_dir, ignore_errors=True)
 
     @patch("main.config_mgr")
     def test_use_valid_provider(self, mock_config):
