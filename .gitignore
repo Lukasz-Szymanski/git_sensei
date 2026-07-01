@@ -11,3 +11,7 @@ docs
 *.egg-info/
 build/
 dist/
+
+# Testing artifacts
+.coverage
+.pytest_cache/
