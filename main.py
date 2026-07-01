@@ -256,14 +256,22 @@ def commit(
         sys.exit(0)
 
     # Secrets check
-    secrets = scan_diff(diff)
-    if secrets:
-        if not raw:
-            typer.secho(format_warning(secrets), fg=typer.colors.YELLOW)
-            if not typer.confirm("Continue anyway?", default=False):
-                sys.exit(1)
-        else:
-            pass
+    secrets_cfg = config_mgr.config.get("secrets", {})
+    secrets_action = secrets_cfg.get("action", "warn").lower()
+
+    if secrets_action != "ignore":
+        secrets = scan_diff(diff, custom_patterns=secrets_cfg.get("custom_patterns"))
+        if secrets:
+            if not raw:
+                typer.secho(format_warning(secrets), fg=typer.colors.YELLOW)
+                if secrets_action == "block":
+                    typer.secho("Commit blocked due to detected secrets (action=block).", fg=typer.colors.RED)
+                    sys.exit(1)
+                elif not typer.confirm("Continue anyway?", default=False):
+                    sys.exit(1)
+            else:
+                if secrets_action == "block":
+                    sys.exit(1)
 
     # Gather git context
     git_context = get_git_context()

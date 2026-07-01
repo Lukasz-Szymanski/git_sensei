@@ -97,6 +97,14 @@ class TestSecretsDetection(unittest.TestCase):
         test_url = "https://hooks.slack" + ".com/services/T12345678/B12345678/aB1cD2eF3gH4iJ5kL6mN7oP8"
         self.assertIsNotNone(re.search(pattern, test_url))
 
+    def test_custom_patterns(self):
+        """Should detect secrets using custom patterns."""
+        diff = "+++ b/config.py\n+MY_CUSTOM_SECRET = \"super_secret_value_123\"\n"
+        custom_patterns = {"My Custom Secret": r"super_secret_value_[0-9]+"}
+        matches = scan_diff(diff, custom_patterns=custom_patterns)
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0].pattern_name, "My Custom Secret")
+
 
 class TestEntropy(unittest.TestCase):
     """Tests for entropy calculation."""

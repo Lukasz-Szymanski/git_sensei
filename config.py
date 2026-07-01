@@ -80,6 +80,10 @@ RULES:
             "description": "Debug (Echo)",
             "command": "cat"
         }
+    },
+    "secrets": {
+        "action": "warn",
+        "custom_patterns": {}
     }
 }
 

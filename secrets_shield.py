@@ -74,7 +74,7 @@ def check_high_entropy(line: str, threshold: float = 4.5) -> List[Tuple[str, flo
     return suspicious
 
 
-def scan_diff(diff: str) -> List[SecretMatch]:
+def scan_diff(diff: str, custom_patterns: dict = None) -> List[SecretMatch]:
     """
     Scan a git diff for potential secrets.
     Only scans added lines (starting with +).
@@ -82,6 +82,10 @@ def scan_diff(diff: str) -> List[SecretMatch]:
     """
     matches = []
     current_file = ""
+
+    patterns_to_check = SECRET_PATTERNS.copy()
+    if custom_patterns:
+        patterns_to_check.update(custom_patterns)
 
     # Files to skip (contain regex patterns that look like secrets)
     skip_files = {"secrets_shield.py", "test_secrets.py"}
@@ -120,7 +124,7 @@ def scan_diff(diff: str) -> List[SecretMatch]:
             continue
 
         # Check known patterns
-        for pattern_name, pattern in SECRET_PATTERNS.items():
+        for pattern_name, pattern in patterns_to_check.items():
             if re.search(pattern, content):
                 match_obj = re.search(pattern, content)
                 matches.append(SecretMatch(
