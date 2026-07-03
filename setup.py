@@ -2,7 +2,12 @@ from setuptools import setup, find_packages
 
 setup(
     name="git-sensei",
-    version="0.10.0",
+    version="0.14.0",
+    description="AI-powered git commit helper with smart truncation, monorepo detection, and secret redaction.",
+    long_description=open("README.md", "r", encoding="utf-8").read(),
+    long_description_content_type="text/markdown",
+    author="Lukasz Szymanski",
+    url="https://github.com/Lukasz-Szymanski/git_sensei",
     packages=find_packages(),
     py_modules=["main", "config", "providers", "git_utils", "secrets_shield", "local_bridge"],
     install_requires=[
@@ -15,4 +20,10 @@ setup(
             "sensei=main:app",
         ],
     },
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    python_requires=">=3.9",
 )
