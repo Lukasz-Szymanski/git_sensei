@@ -5,22 +5,19 @@ import tempfile
 from typer.testing import CliRunner
 from main import app, get_stats_file_path, record_commit_stat
 
+from unittest.mock import patch
+
 class TestCLIDiagnostics(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
-        self.stats_path = get_stats_file_path()
-        if os.path.exists(self.stats_path):
-            try:
-                os.remove(self.stats_path)
-            except Exception:
-                pass
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.stats_path = os.path.join(self.temp_dir.name, "stats.json")
+        self.patcher = patch("main.get_stats_file_path", return_value=self.stats_path)
+        self.patcher.start()
 
     def tearDown(self):
-        if os.path.exists(self.stats_path):
-            try:
-                os.remove(self.stats_path)
-            except Exception:
-                pass
+        self.patcher.stop()
+        self.temp_dir.cleanup()
 
     def test_stats_recording_and_display(self):
         # Initial stats call (should show no stats message)
