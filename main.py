@@ -62,6 +62,47 @@ RULES:
 {context}"""
 
 
+def update_commit_message_header(message: str, new_type: str, include_emoji: bool) -> str:
+    """Updates the commit message's first line type and emoji prefix."""
+    lines = message.splitlines()
+    if not lines:
+        return message
+    first_line = lines[0]
+    
+    # Match conventional commit header pattern
+    # Optional emoji at the start, followed by type, optional (scope), and subject
+    pattern = r"^(?P<emoji>(?::\w+:|[\U00010000-\U0010ffff]\s*))?\s*(?P<type>[a-zA-Z0-9_-]+)(?P<scope>\([^)]+\))?(?P<breaking>!)?\s*:\s*(?P<subject>.*)$"
+    match = re.match(pattern, first_line)
+    
+    gitmojis = {
+        "feat": "✨",
+        "fix": "🐛",
+        "docs": "📝",
+        "style": "🎨",
+        "refactor": "♻️",
+        "perf": "⚡️",
+        "test": "🧪",
+        "build": "📦",
+        "ci": "💚",
+        "chore": "🔧",
+        "revert": "⏪"
+    }
+    
+    emoji_prefix = (gitmojis.get(new_type, "") + " ") if (include_emoji and new_type in gitmojis) else ""
+    
+    if match:
+        scope = match.group("scope") or ""
+        breaking = match.group("breaking") or ""
+        subject = match.group("subject") or ""
+        # Reconstruct first line
+        lines[0] = f"{emoji_prefix}{new_type}{scope}{breaking}: {subject}"
+    else:
+        # Fallback if first line is not conventional commit format
+        lines[0] = f"{emoji_prefix}{new_type}: {first_line}"
+        
+    return "\n".join(lines)
+
+
 def build_prompt_with_context(base_prompt: str, git_context: dict, prompt_cfg: dict = None, recent_commits: list = None) -> str:
     """Build final prompt with git context injected, applying prompt customization and few-shot examples."""
     # Check if config is default or missing
@@ -384,7 +425,7 @@ def commit(
         if dry_run:
             break
 
-        choice = typer.prompt("[y]es, [n]o, [e]edit, [r]etry", default="y").lower()
+        choice = typer.prompt("[y]es, [n]o, [e]dit, [r]etry, re[f]ine, [s]elect", default="y").lower()
 
         if choice in ('y', 'yes'):
             if create_commit(message):
@@ -402,6 +443,42 @@ def commit(
                 message = clean_response(raw)
                 if use_emoji:
                     message = apply_gitmoji(message)
+        elif choice in ('f', 'refine'):
+            refinement_text = typer.prompt("Enter refinement instructions")
+            refine_prompt = (
+                f"{prompt}\n\n"
+                f"PREVIOUS SUGGESTION:\n{message}\n\n"
+                f"USER REFINEMENT INSTRUCTION:\n{refinement_text}\n\n"
+                f"Generate a new commit message that incorporates the user's refinement instructions."
+            )
+            if not raw:
+                typer.echo("Refining...")
+            raw = ai.execute(diff, refine_prompt)
+            if raw:
+                message = clean_response(raw)
+                if use_emoji:
+                    message = apply_gitmoji(message)
+        elif choice in ('s', 'select'):
+            types = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert"]
+            gitmojis = {
+                "feat": "✨", "fix": "🐛", "docs": "📝", "style": "🎨", "refactor": "♻️",
+                "perf": "⚡️", "test": "🧪", "build": "📦", "ci": "💚", "chore": "🔧", "revert": "⏪"
+            }
+            typer.echo("Select commit type:")
+            for i, t in enumerate(types, 1):
+                typer.echo(f"  {i}. {t} {gitmojis.get(t, '')}")
+            type_choice = typer.prompt("Choose type (number or name)", default="1")
+            
+            selected_type = "feat"
+            if type_choice.isdigit():
+                idx = int(type_choice) - 1
+                if 0 <= idx < len(types):
+                    selected_type = types[idx]
+            elif type_choice in types:
+                selected_type = type_choice
+            
+            include_emoji = typer.confirm("Include Gitmoji?", default=use_emoji)
+            message = update_commit_message_header(message, selected_type, include_emoji)
         elif choice in ('n', 'no'):
             typer.secho("Aborted.", fg=typer.colors.RED)
             break
@@ -508,7 +585,7 @@ def amend(
         if dry_run:
             break
 
-        choice = typer.prompt("[y]es, [n]o, [e]edit, [r]etry", default="y").lower()
+        choice = typer.prompt("[y]es, [n]o, [e]dit, [r]etry, re[f]ine, [s]elect", default="y").lower()
 
         if choice in ('y', 'yes'):
             if amend_commit(message):
@@ -526,6 +603,42 @@ def amend(
                 message = clean_response(raw_resp)
                 if use_emoji:
                     message = apply_gitmoji(message)
+        elif choice in ('f', 'refine'):
+            refinement_text = typer.prompt("Enter refinement instructions")
+            refine_prompt = (
+                f"{prompt}\n\n"
+                f"PREVIOUS SUGGESTION:\n{message}\n\n"
+                f"USER REFINEMENT INSTRUCTION:\n{refinement_text}\n\n"
+                f"Generate a new commit message that incorporates the user's refinement instructions."
+            )
+            if not raw:
+                typer.echo("Refining...")
+            raw_resp = ai.execute(diff, refine_prompt)
+            if raw_resp:
+                message = clean_response(raw_resp)
+                if use_emoji:
+                    message = apply_gitmoji(message)
+        elif choice in ('s', 'select'):
+            types = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert"]
+            gitmojis = {
+                "feat": "✨", "fix": "🐛", "docs": "📝", "style": "🎨", "refactor": "♻️",
+                "perf": "⚡️", "test": "🧪", "build": "📦", "ci": "💚", "chore": "🔧", "revert": "⏪"
+            }
+            typer.echo("Select commit type:")
+            for i, t in enumerate(types, 1):
+                typer.echo(f"  {i}. {t} {gitmojis.get(t, '')}")
+            type_choice = typer.prompt("Choose type (number or name)", default="1")
+            
+            selected_type = "feat"
+            if type_choice.isdigit():
+                idx = int(type_choice) - 1
+                if 0 <= idx < len(types):
+                    selected_type = types[idx]
+            elif type_choice in types:
+                selected_type = type_choice
+            
+            include_emoji = typer.confirm("Include Gitmoji?", default=use_emoji)
+            message = update_commit_message_header(message, selected_type, include_emoji)
         elif choice in ('n', 'no'):
             typer.secho("Aborted.", fg=typer.colors.RED)
             break
