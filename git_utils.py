@@ -181,3 +181,28 @@ def amend_commit(message: str) -> bool:
         return True
     except subprocess.CalledProcessError:
         return False
+
+
+def get_last_commit_message() -> Optional[str]:
+    """Get the message of the last commit."""
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--pretty=%B"],
+            capture_output=True, text=True, encoding='utf-8', check=True
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        return None
+
+
+def is_commit_pushed(commit: str = "HEAD") -> bool:
+    """Check if a specific commit is pushed to any remote branch."""
+    try:
+        result = subprocess.run(
+            ["git", "branch", "-r", "--contains", commit],
+            capture_output=True, text=True, encoding='utf-8'
+        )
+        return bool(result.stdout.strip())
+    except subprocess.CalledProcessError:
+        return False
+

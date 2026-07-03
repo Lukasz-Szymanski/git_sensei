@@ -11,8 +11,7 @@ from typing import Optional
 from config import ConfigManager
 from providers import AIProvider
 from secrets_shield import scan_diff, format_warning
-from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context, get_amend_diff, amend_commit
-
+from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context, get_amend_diff, amend_commit, get_last_commit_message, is_commit_pushed
 app = typer.Typer(
     help="Git-Sensei: AI-powered commit message generator. Quick start: git add . && sensei commit",
     add_completion=False,
@@ -381,6 +380,14 @@ def amend(
 
     git_context = get_git_context()
 
+    current_msg = get_last_commit_message() or ""
+    
+    if not raw and is_commit_pushed():
+        typer.secho("⚠️  WARNING: The last commit has already been pushed to a remote.", fg=typer.colors.YELLOW)
+        typer.secho("Amending will rewrite history and require a force push.", fg=typer.colors.YELLOW)
+        if not typer.confirm("Continue anyway?", default=True):
+            sys.exit(0)
+
     if not raw and git_context.get('context_summary'):
         typer.secho(f"Context: {git_context['context_summary']}", fg=typer.colors.CYAN)
 
@@ -404,6 +411,10 @@ def amend(
 
     while True:
         typer.echo("-" * 50)
+        if current_msg:
+            typer.echo("Current:   ", nl=False)
+            typer.secho(current_msg, fg=typer.colors.RED)
+        typer.echo("Suggested: ", nl=False)
         typer.secho(message, fg=typer.colors.GREEN)
         typer.echo("-" * 50)
 
