@@ -15,3 +15,4 @@ dist/
 # Testing artifacts
 .coverage
 .pytest_cache/
+.agents/
