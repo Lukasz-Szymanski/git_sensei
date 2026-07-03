@@ -244,6 +244,7 @@ git_sensei/
 - Added interactive refinement loop (re[f]ine) to direct/regenerate message and interactive commit type/emoji selector ([s]elect) (Milestone 4)
 - Added atomic commit splitter (`sensei commit --split`) to group large changes into separate, logical commits (Milestone 5)
 - Added support for custom OpenAI-compatible API endpoints (e.g. DeepSeek, Ollama) and automatic secret redaction with [REDACTED] in diffs (Milestone 6)
+- Added CLI diagnostics (`sensei stats`, `sensei log`, `sensei lint`) and integration configuration for pre-commit frameworks (Milestone 7)
 - Added `sensei amend` command to rewrite the last commit message with AI analysis
 - Added safety checks to prevent accidental rewrites of pushed commits without warning
 - Enhanced Smart Context with expanded issue ID patterns (e.g., `gh-123`, `ado-123`) and auto-uppercasing

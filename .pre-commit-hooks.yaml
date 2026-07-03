@@ -1,0 +1,6 @@
+- id: git-sensei-lint
+  name: Git-Sensei Commit Message Linter
+  description: Lint git commit messages for Conventional Commits formatting
+  entry: sensei lint
+  language: python
+  stages: [commit-msg]

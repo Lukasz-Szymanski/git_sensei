@@ -6,6 +6,7 @@ import re
 import subprocess
 import tempfile
 import typer
+import json
 from typing import Optional
 
 from config import ConfigManager
@@ -30,6 +31,55 @@ def display_truncation_metadata(meta: dict, raw: bool):
             typer.secho(f"  - {filepath} ({reason})", fg=typer.colors.YELLOW)
     if meta.get("truncated"):
         typer.secho(f"Warning: Diff was truncated using strategy '{meta.get('strategy')}' as it exceeded token budget.", fg=typer.colors.RED)
+
+
+def get_stats_file_path() -> str:
+    return os.path.expanduser("~/.sensei/stats.json")
+
+
+def parse_commit_type(message: str) -> str:
+    """Parse commit type from message."""
+    cleaned = re.sub(r'^(?:\:\w+\:|[\U00010000-\U0010ffff]\s*)\s*', '', message.strip())
+    match = re.match(r'^([a-zA-Z0-9_-]+)', cleaned)
+    if match:
+        return match.group(1).lower()
+    return "unknown"
+
+
+def record_commit_stat(provider: str, decision: str, commit_type: str, message_len: int):
+    """Record a commit attempt, type, provider and accept/reject decision."""
+    path = get_stats_file_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    
+    stats = {}
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                stats = json.load(f)
+        except Exception:
+            pass
+            
+    stats["generated_attempts"] = stats.get("generated_attempts", 0) + 1
+    
+    decisions = stats.setdefault("decisions", {"accepted": 0, "rejected": 0})
+    decisions[decision] = decisions.get(decision, 0) + 1
+    
+    providers = stats.setdefault("providers", {})
+    providers[provider] = providers.get(provider, 0) + 1
+    
+    types = stats.setdefault("types", {})
+    types[commit_type] = types.get(commit_type, 0) + 1
+    
+    # Calculate rolling average message length
+    total_len_sum = stats.get("total_message_length_sum", 0) + message_len
+    stats["total_message_length_sum"] = total_len_sum
+    stats["average_message_length"] = round(total_len_sum / stats["generated_attempts"])
+    
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(stats, f, indent=2)
+    except Exception:
+        pass
 
 
 def generate_and_review_commit_for_diff(
@@ -90,6 +140,7 @@ def generate_and_review_commit_for_diff(
         if choice in ('y', 'yes'):
             if create_commit(message):
                 typer.secho("Committed!", fg=typer.colors.GREEN)
+                record_commit_stat(provider_name, "accepted", parse_commit_type(message), len(message))
                 return True
             return False
         elif choice in ('e', 'edit'):
@@ -141,6 +192,7 @@ def generate_and_review_commit_for_diff(
             message = update_commit_message_header(message, selected_type, include_emoji)
         elif choice in ('n', 'no'):
             typer.secho("Aborted.", fg=typer.colors.RED)
+            record_commit_stat(provider_name, "rejected", parse_commit_type(message), len(message))
             return False
 
 CONVENTIONAL_REGEX = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9_\-\./+]+\))?: .+$"
@@ -873,6 +925,230 @@ fi
     except Exception as e:
         typer.secho(f"Failed to install hook: {e}", fg=typer.colors.RED)
         sys.exit(1)
+
+
+@app.command(name="stats")
+def stats_cmd(
+    reset: bool = typer.Option(False, "--reset", help="Clear usage statistics."),
+    json_output: bool = typer.Option(False, "--json", help="Output raw JSON data.")
+):
+    """Display usage statistics."""
+    path = get_stats_file_path()
+    
+    if reset:
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+                typer.secho("Statistics cleared.", fg=typer.colors.GREEN)
+            except Exception as e:
+                typer.secho(f"Failed to clear statistics: {e}", fg=typer.colors.RED)
+        else:
+            typer.echo("No statistics to clear.")
+        return
+
+    if not os.path.exists(path):
+        if json_output:
+            print(json.dumps({}))
+        else:
+            typer.echo("No statistics recorded yet. Generate some commit messages first!")
+        return
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            stats = json.load(f)
+    except Exception as e:
+        typer.secho(f"Failed to read statistics: {e}", fg=typer.colors.RED)
+        return
+
+    if json_output:
+        print(json.dumps(stats, indent=2))
+        return
+
+    # Visual display
+    attempts = stats.get("generated_attempts", 0)
+    decisions = stats.get("decisions", {})
+    accepted = decisions.get("accepted", 0)
+    rejected = decisions.get("rejected", 0)
+    rate = round((accepted / (accepted + rejected) * 100)) if (accepted + rejected) > 0 else 0
+    
+    typer.echo("Git-Sensei Statistics")
+    typer.echo("──────────────────────")
+    typer.echo(f"Commits generated:  {attempts}")
+    typer.echo(f"Acceptance rate:    {rate}% ({accepted} accepted, {rejected} rejected)")
+    
+    # Providers breakdown
+    providers = stats.get("providers", {})
+    if providers:
+        prov_parts = []
+        for name, count in providers.items():
+            pct = round((count / attempts) * 100) if attempts > 0 else 0
+            prov_parts.append(f"{name} ({pct}%)")
+        typer.echo(f"Provider usage:     {', '.join(prov_parts)}")
+        
+    # Types distribution
+    types = stats.get("types", {})
+    if types:
+        sorted_types = sorted(types.items(), key=lambda x: x[1], reverse=True)
+        type_parts = []
+        for t_name, count in sorted_types[:3]:
+            pct = round((count / attempts) * 100) if attempts > 0 else 0
+            type_parts.append(f"{t_name} ({pct}%)")
+        typer.echo(f"Most common type:   {', '.join(type_parts)}")
+        
+    typer.echo(f"Average msg length: {stats.get('average_message_length', 0)} chars")
+
+
+@app.command(name="lint")
+def lint_cmd(
+    message: Optional[str] = typer.Argument(None, help="Commit message string or path to a commit message file.")
+):
+    """Lint commit message formatting for Conventional Commits."""
+    msg = ""
+    if message:
+        if os.path.exists(message):
+            try:
+                with open(message, "r", encoding="utf-8") as f:
+                    msg = f.read()
+            except Exception as e:
+                typer.secho(f"Error reading file '{message}': {e}", err=True, fg=typer.colors.RED)
+                sys.exit(1)
+        else:
+            msg = message
+    else:
+        # Check if stdin has data
+        if not sys.stdin.isatty():
+            msg = sys.stdin.read()
+        else:
+            typer.secho("Error: No commit message provided to lint.", err=True, fg=typer.colors.RED)
+            typer.echo("Usage: sensei lint 'feat: my commit message' or sensei lint .git/COMMIT_EDITMSG", err=True)
+            sys.exit(1)
+
+    errors = []
+    lines = msg.strip().splitlines()
+    if not lines:
+        errors.append("Commit message is empty.")
+    else:
+        first_line = lines[0].strip()
+        
+        # Check Conventional Commits standard
+        pattern = r"^(?::\w+:|[\U00010000-\U0010ffff]\s*)?\s*(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(?:\([^)]+\))?!?\s*:\s*.+$"
+        if not re.match(pattern, first_line):
+            errors.append("First line does not match Conventional Commits format (e.g. 'feat(scope): add feature').")
+            
+        # Check first line length
+        if len(first_line) > 72:
+            errors.append(f"First line exceeds 72 characters ({len(first_line)} chars).")
+            
+        # Check disallowed markdown
+        if "`" in first_line or "**" in first_line or "*" in first_line:
+            errors.append("First line contains disallowed markdown formatting (backticks, bold, italic).")
+
+    if errors:
+        typer.secho("✗ Commit message validation failed:", err=True, fg=typer.colors.RED)
+        for err in errors:
+            typer.secho(f"  - {err}", err=True, fg=typer.colors.RED)
+        sys.exit(1)
+        
+    typer.secho("✓ Commit message is valid.", fg=typer.colors.GREEN)
+    sys.exit(0)
+
+
+@app.command(name="log")
+def log_cmd(
+    count: int = typer.Option(10, "-n", "--count", help="Number of commits to display."),
+    all_history: bool = typer.Option(False, "--all", help="Display full commit history."),
+    stats: bool = typer.Option(False, "--stats", help="Show commit type distribution summary.")
+):
+    """Display colored commit history with Conventional Commits validation."""
+    limit = -1 if all_history else count
+    log_args = ["git", "log", "--no-merges", "--format=%h %B===COMMIT_DELIMITER==="]
+    if limit > 0:
+        log_args.append(f"-{limit}")
+        
+    try:
+        res = subprocess.run(log_args, capture_output=True, text=True, encoding="utf-8", check=True)
+        raw_log = res.stdout
+    except Exception as e:
+        typer.secho(f"Error running git log: {e}", fg=typer.colors.RED)
+        sys.exit(1)
+        
+    commits_raw = raw_log.split("===COMMIT_DELIMITER===")
+    commits = []
+    for c in commits_raw:
+        c_strip = c.strip()
+        if c_strip:
+            parts = c_strip.split(" ", 1)
+            hash_str = parts[0]
+            msg = parts[1] if len(parts) > 1 else ""
+            commits.append((hash_str, msg))
+            
+    if not commits:
+        typer.echo("No commits found.")
+        return
+
+    type_counts = {}
+    valid_count = 0
+    total_count = len(commits)
+
+    pattern = r"^(?::\w+:|[\U00010000-\U0010ffff]\s*)?\s*(?P<type>feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(?:\((?P<scope>[^)]+)\))?!?\s*:\s*(?P<subject>.+)$"
+
+    for hash_str, msg in commits:
+        first_line = msg.strip().splitlines()[0] if msg.strip() else ""
+        match = re.match(pattern, first_line)
+        
+        color = typer.colors.WHITE
+        is_valid = False
+        display_type = "unknown"
+        display_scope = ""
+        display_subject = first_line
+
+        if match:
+            is_valid = len(first_line) <= 72 and not ("`" in first_line or "**" in first_line)
+            display_type = match.group("type")
+            display_scope = match.group("scope") or ""
+            display_subject = match.group("subject")
+            
+            type_counts[display_type] = type_counts.get(display_type, 0) + 1
+            
+            color_map = {
+                "feat": typer.colors.GREEN,
+                "fix": typer.colors.RED,
+                "docs": typer.colors.BLUE,
+                "refactor": typer.colors.YELLOW,
+                "style": typer.colors.MAGENTA,
+                "perf": typer.colors.CYAN,
+                "test": typer.colors.CYAN,
+                "build": typer.colors.CYAN,
+                "ci": typer.colors.CYAN,
+                "chore": typer.colors.CYAN,
+                "revert": typer.colors.CYAN
+            }
+            color = color_map.get(display_type, typer.colors.WHITE)
+            
+        if is_valid:
+            valid_count += 1
+            status_marker = typer.style("✓", fg=typer.colors.GREEN)
+        else:
+            status_marker = typer.style("✗", fg=typer.colors.RED)
+            
+        hash_styled = typer.style(hash_str, fg=typer.colors.BRIGHT_BLACK)
+        type_styled = typer.style(display_type, fg=color, bold=True)
+        scope_styled = f"({typer.style(display_scope, fg=typer.colors.MAGENTA)})" if display_scope else ""
+        
+        if match:
+            typer.echo(f"* {hash_styled} {type_styled}{scope_styled}: {display_subject}  {status_marker}")
+        else:
+            typer.echo(f"* {hash_styled} {typer.style(first_line, fg=typer.colors.BRIGHT_BLACK)}  {status_marker}")
+
+    if stats and total_count > 0:
+        typer.echo("\nCommit Type Distribution:")
+        typer.echo("──────────────────────────")
+        for t_name, count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True):
+            pct = round((count / total_count) * 100)
+            typer.echo(f"  {t_name}: {count} ({pct}%)")
+        typer.echo("──────────────────────────")
+        valid_pct = round((valid_count / total_count) * 100)
+        typer.echo(f"Conventional Commits compliance: {valid_count}/{total_count} ({valid_pct}%)")
 
 
 if __name__ == "__main__":
