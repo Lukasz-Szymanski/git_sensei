@@ -15,6 +15,8 @@ class AIProvider:
         self.description = config.get("description", "")
         self.api_type = config.get("api_type")
         self.model = config.get("model")
+        self.api_url = config.get("api_url")
+        self.api_key_env = config.get("api_key_env")
 
     def execute(self, diff: str, system_prompt: str) -> str:
         """
@@ -22,7 +24,7 @@ class AIProvider:
         """
         if self.api_type == "gemini":
             return self._execute_gemini_api(diff, system_prompt)
-        elif self.api_type == "openai":
+        elif self.api_type == "openai" or self.api_url:
             return self._execute_openai_api(diff, system_prompt)
 
         if not self.command_template:
@@ -124,14 +126,15 @@ class AIProvider:
             return ""
 
     def _execute_openai_api(self, diff: str, system_prompt: str) -> str:
-        api_key = os.getenv("OPENAI_API_KEY")
+        env_key_name = self.api_key_env or "OPENAI_API_KEY"
+        api_key = os.getenv(env_key_name)
         if not api_key:
-            print("\n[Error] OPENAI_API_KEY environment variable not set.")
-            print("Please set it using: export OPENAI_API_KEY='your_key'")
+            print(f"\n[Error] {env_key_name} environment variable not set.")
+            print(f"Please set it using: export {env_key_name}='your_key'")
             return ""
             
         model = self.model or "gpt-4o-mini"
-        url = "https://api.openai.com/v1/chat/completions"
+        url = self.api_url or "https://api.openai.com/v1/chat/completions"
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}"
@@ -158,23 +161,25 @@ class AIProvider:
                     return choices[0].get("message", {}).get("content", "").strip()
                 return ""
         except urllib.error.HTTPError as e:
-            print(f"\n[API Error] OpenAI API returned HTTP status {e.code}")
+            print(f"\n[API Error] Custom/OpenAI API returned HTTP status {e.code}")
             try:
                 print(f"Details: {e.read().decode('utf-8')}")
             except Exception:
                 pass
             return ""
         except Exception as e:
-            print(f"\n[API Error] Failed to connect to OpenAI API: {e}")
+            print(f"\n[API Error] Failed to connect to Custom/OpenAI API: {e}")
             return ""
 
     def check_health(self) -> bool:
         """
         Simple 'ping' to see if the command exists or environment variable is set.
         """
-        if self.api_type in ("gemini", "openai"):
-            key_name = "GEMINI_API_KEY" if self.api_type == "gemini" else "OPENAI_API_KEY"
-            return os.getenv(key_name) is not None
+        if self.api_type == "gemini":
+            return os.getenv("GEMINI_API_KEY") is not None
+        elif self.api_type == "openai" or self.api_url:
+            env_key = self.api_key_env or "OPENAI_API_KEY"
+            return os.getenv(env_key) is not None
 
         if not self.command_template:
             return False
@@ -186,13 +191,12 @@ class AIProvider:
         """Test real connection to AI provider.
 
         Returns:
-            tuple: (success: bool, message: str)
+             tuple: (success: bool, message: str)
         """
-        if self.api_type in ("gemini", "openai"):
+        if self.api_type == "gemini" or self.api_type == "openai" or self.api_url:
             if not self.check_health():
-                key_name = "GEMINI_API_KEY" if self.api_type == "gemini" else "OPENAI_API_KEY"
+                key_name = "GEMINI_API_KEY" if self.api_type == "gemini" else (self.api_key_env or "OPENAI_API_KEY")
                 return False, f"Missing {key_name} environment variable"
-
         else:
             if not self.check_health():
                 return False, f"Command not found in PATH"

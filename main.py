@@ -10,7 +10,7 @@ from typing import Optional
 
 from config import ConfigManager
 from providers import AIProvider
-from secrets_shield import scan_diff, format_warning
+from secrets_shield import scan_diff, format_warning, redact_secrets
 from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context, get_amend_diff, amend_commit, get_last_commit_message, is_commit_pushed, get_recent_commits, get_staged_diff_filtered, split_staged_diff
 app = typer.Typer(
     help="Git-Sensei: AI-powered commit message generator. Quick start: git add . && sensei commit",
@@ -60,8 +60,10 @@ def generate_and_review_commit_for_diff(
     limit = prompt_cfg.get("few_shot", 3)
     recent_commits = get_recent_commits(limit=limit, start_ref="HEAD")
     prompt = build_prompt_with_context(base_prompt, git_context, prompt_cfg, recent_commits)
+    secrets_cfg = config_mgr.config.get("secrets", {})
+    diff_redacted = redact_secrets(diff, custom_patterns=secrets_cfg.get("custom_patterns"))
     ai = AIProvider(provider_name, provider_cfg)
-    raw_response = ai.execute(diff, prompt)
+    raw_response = ai.execute(diff_redacted, prompt)
 
     message = clean_response(raw_response) if raw_response else call_local_fallback(diff)
 

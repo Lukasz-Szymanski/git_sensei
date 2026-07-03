@@ -163,3 +163,65 @@ def format_warning(matches: List[SecretMatch]) -> str:
     lines.append("")
 
     return "\n".join(lines)
+
+
+def redact_secrets(diff: str, custom_patterns: dict = None) -> str:
+    """
+    Scan a git diff and replace all detected secrets/credentials with [REDACTED].
+    """
+    patterns_to_check = SECRET_PATTERNS.copy()
+    if custom_patterns:
+        patterns_to_check.update(custom_patterns)
+
+    redacted_lines = []
+    current_file = ""
+    skip_files = {"secrets_shield.py", "test_secrets.py"}
+
+    for line in diff.split('\n'):
+        # Track current file
+        if line.startswith('+++ b/'):
+            current_file = line[6:].split('/')[-1]
+            redacted_lines.append(line)
+            continue
+
+        # Skip files that contain detection patterns
+        if current_file in skip_files:
+            redacted_lines.append(line)
+            continue
+
+        # Only redact added lines
+        if not line.startswith('+') or line.startswith('+++'):
+            redacted_lines.append(line)
+            continue
+
+        content = line[1:]  # Remove + prefix
+        redacted_content = content
+
+        # 1. Redact known patterns
+        for pattern_name, pattern in patterns_to_check.items():
+            try:
+                # Find match in content
+                match_obj = re.search(pattern, redacted_content)
+                if match_obj:
+                    # If pattern has a capture group, redact only the first group
+                    if match_obj.groups():
+                        secret_val = match_obj.group(1)
+                        if secret_val and secret_val != "[REDACTED]":
+                            redacted_content = redacted_content.replace(secret_val, "[REDACTED]")
+                    else:
+                        whole_match = match_obj.group(0)
+                        if whole_match and whole_match != "[REDACTED]":
+                            redacted_content = redacted_content.replace(whole_match, "[REDACTED]")
+            except Exception:
+                pass
+
+        # 2. Redact high-entropy values
+        high_entropy = check_high_entropy(redacted_content)
+        for value, entropy in high_entropy:
+            if value != "[REDACTED]":
+                redacted_content = redacted_content.replace(value, "[REDACTED]")
+
+        redacted_lines.append("+" + redacted_content)
+
+    return '\n'.join(redacted_lines)
+
