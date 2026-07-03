@@ -11,7 +11,7 @@ from typing import Optional
 from config import ConfigManager
 from providers import AIProvider
 from secrets_shield import scan_diff, format_warning
-from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context, get_amend_diff, amend_commit, get_last_commit_message, is_commit_pushed, get_recent_commits, get_staged_diff_filtered
+from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context, get_amend_diff, amend_commit, get_last_commit_message, is_commit_pushed, get_recent_commits, get_staged_diff_filtered, split_staged_diff
 app = typer.Typer(
     help="Git-Sensei: AI-powered commit message generator. Quick start: git add . && sensei commit",
     add_completion=False,
@@ -30,6 +30,116 @@ def display_truncation_metadata(meta: dict, raw: bool):
             typer.secho(f"  - {filepath} ({reason})", fg=typer.colors.YELLOW)
     if meta.get("truncated"):
         typer.secho(f"Warning: Diff was truncated using strategy '{meta.get('strategy')}' as it exceeded token budget.", fg=typer.colors.RED)
+
+
+def generate_and_review_commit_for_diff(
+    diff: str,
+    provider_name: str,
+    provider_cfg: dict,
+    raw: bool,
+    dry_run: bool,
+    emoji: Optional[bool]
+) -> bool:
+    """
+    Generates a commit message for a given diff, displays the context, and runs
+    the interactive review loop. Returns True if committed, False if aborted.
+    """
+    # Gather git context
+    git_context = get_git_context(config_mgr.config)
+
+    # Show context info
+    if not raw and git_context.get('context_summary'):
+        typer.secho(f"Context: {git_context['context_summary']}", fg=typer.colors.CYAN)
+
+    # Generate message
+    if not raw:
+        typer.echo("Thinking...")
+    # Priority: provider-specific prompt > universal prompt > default
+    base_prompt = provider_cfg.get("prompt") or config_mgr.get_universal_prompt() or DEFAULT_PROMPT
+    prompt_cfg = config_mgr.get_prompt_config()
+    limit = prompt_cfg.get("few_shot", 3)
+    recent_commits = get_recent_commits(limit=limit, start_ref="HEAD")
+    prompt = build_prompt_with_context(base_prompt, git_context, prompt_cfg, recent_commits)
+    ai = AIProvider(provider_name, provider_cfg)
+    raw_response = ai.execute(diff, prompt)
+
+    message = clean_response(raw_response) if raw_response else call_local_fallback(diff)
+
+    # Apply Gitmoji if enabled
+    use_emoji = emoji if emoji is not None else config_mgr.config.get("core", {}).get("emoji", False)
+    if use_emoji:
+        message = apply_gitmoji(message)
+
+    if raw:
+        print(message)
+        return True
+
+    # Review loop
+    while True:
+        typer.echo("-" * 50)
+        typer.secho(message, fg=typer.colors.GREEN)
+        typer.echo("-" * 50)
+
+        if dry_run:
+            return True
+
+        choice = typer.prompt("[y]es, [n]o, [e]dit, [r]etry, re[f]ine, [s]elect", default="y").lower()
+
+        if choice in ('y', 'yes'):
+            if create_commit(message):
+                typer.secho("Committed!", fg=typer.colors.GREEN)
+                return True
+            return False
+        elif choice in ('e', 'edit'):
+            edited = edit_in_editor(message)
+            if edited:
+                message = edited
+            else:
+                typer.secho("Edit cancelled, keeping original message.", fg=typer.colors.YELLOW)
+        elif choice in ('r', 'retry'):
+            raw_res = ai.execute(diff, prompt)
+            if raw_res:
+                message = clean_response(raw_res)
+                if use_emoji:
+                    message = apply_gitmoji(message)
+        elif choice in ('f', 'refine'):
+            refinement_text = typer.prompt("Enter refinement instructions")
+            refine_prompt = (
+                f"{prompt}\n\n"
+                f"PREVIOUS SUGGESTION:\n{message}\n\n"
+                f"USER REFINEMENT INSTRUCTION:\n{refinement_text}\n\n"
+                f"Generate a new commit message that incorporates the user's refinement instructions."
+            )
+            typer.echo("Refining...")
+            raw_res = ai.execute(diff, refine_prompt)
+            if raw_res:
+                message = clean_response(raw_res)
+                if use_emoji:
+                    message = apply_gitmoji(message)
+        elif choice in ('s', 'select'):
+            types = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert"]
+            gitmojis = {
+                "feat": "✨", "fix": "🐛", "docs": "📝", "style": "🎨", "refactor": "♻️",
+                "perf": "⚡️", "test": "🧪", "build": "📦", "ci": "💚", "chore": "🔧", "revert": "⏪"
+            }
+            typer.echo("Select commit type:")
+            for i, t in enumerate(types, 1):
+                typer.echo(f"  {i}. {t} {gitmojis.get(t, '')}")
+            type_choice = typer.prompt("Choose type (number or name)", default="1")
+            
+            selected_type = "feat"
+            if type_choice.isdigit():
+                idx = int(type_choice) - 1
+                if 0 <= idx < len(types):
+                    selected_type = types[idx]
+            elif type_choice in types:
+                selected_type = type_choice
+            
+            include_emoji = typer.confirm("Include Gitmoji?", default=use_emoji)
+            message = update_commit_message_header(message, selected_type, include_emoji)
+        elif choice in ('n', 'no'):
+            typer.secho("Aborted.", fg=typer.colors.RED)
+            return False
 
 CONVENTIONAL_REGEX = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9_\-\./+]+\))?: .+$"
 
@@ -340,7 +450,8 @@ def commit(
     provider: str = typer.Option(None, "-p", "--provider", help="AI provider to use."),
     dry_run: bool = typer.Option(False, "-d", "--dry-run", help="Preview without committing."),
     emoji: Optional[bool] = typer.Option(None, "--emoji/--no-emoji", help="Enable/disable Gitmoji support."),
-    raw: bool = typer.Option(False, "--raw", help="Output raw commit message to stdout and exit.")
+    raw: bool = typer.Option(False, "--raw", help="Output raw commit message to stdout and exit."),
+    split: bool = typer.Option(False, "--split", help="Split staged changes into separate atomic commits.")
 ):
     """Generate a commit message using AI."""
     if not shutil.which("git"):
@@ -386,102 +497,69 @@ def commit(
                 if secrets_action == "block":
                     sys.exit(1)
 
-    # Gather git context
-    git_context = get_git_context(config_mgr.config)
-
-    # Show context info
-    if not raw and git_context.get('context_summary'):
-        typer.secho(f"Context: {git_context['context_summary']}", fg=typer.colors.CYAN)
-
-    # Generate message
-    if not raw:
-        typer.echo("Thinking...")
-    # Priority: provider-specific prompt > universal prompt > default
-    base_prompt = provider_cfg.get("prompt") or config_mgr.get_universal_prompt() or DEFAULT_PROMPT
-    prompt_cfg = config_mgr.get_prompt_config()
-    limit = prompt_cfg.get("few_shot", 3)
-    recent_commits = get_recent_commits(limit=limit, start_ref="HEAD")
-    prompt = build_prompt_with_context(base_prompt, git_context, prompt_cfg, recent_commits)
-    ai = AIProvider(provider_name, provider_cfg)
-    raw_response = ai.execute(diff, prompt)
-
-    message = clean_response(raw_response) if raw_response else call_local_fallback(diff)
-
-    # Apply Gitmoji if enabled
-    use_emoji = emoji if emoji is not None else config_mgr.config.get("core", {}).get("emoji", False)
-    if use_emoji:
-        message = apply_gitmoji(message)
-
-    if raw:
-        print(message)
-        sys.exit(0)
-
-    # Review loop
-    while True:
-        typer.echo("-" * 50)
-        typer.secho(message, fg=typer.colors.GREEN)
-        typer.echo("-" * 50)
-
-        if dry_run:
-            break
-
-        choice = typer.prompt("[y]es, [n]o, [e]dit, [r]etry, re[f]ine, [s]elect", default="y").lower()
-
-        if choice in ('y', 'yes'):
-            if create_commit(message):
-                typer.secho("Committed!", fg=typer.colors.GREEN)
-            break
-        elif choice in ('e', 'edit'):
-            edited = edit_in_editor(message)
-            if edited:
-                message = edited
-            else:
-                typer.secho("Edit cancelled, keeping original message.", fg=typer.colors.YELLOW)
-        elif choice in ('r', 'retry'):
-            raw = ai.execute(diff, prompt)
-            if raw:
-                message = clean_response(raw)
-                if use_emoji:
-                    message = apply_gitmoji(message)
-        elif choice in ('f', 'refine'):
-            refinement_text = typer.prompt("Enter refinement instructions")
-            refine_prompt = (
-                f"{prompt}\n\n"
-                f"PREVIOUS SUGGESTION:\n{message}\n\n"
-                f"USER REFINEMENT INSTRUCTION:\n{refinement_text}\n\n"
-                f"Generate a new commit message that incorporates the user's refinement instructions."
-            )
+    # Split flow
+    if split:
+        groups = split_staged_diff(diff)
+        if len(groups) > 1:
             if not raw:
-                typer.echo("Refining...")
-            raw = ai.execute(diff, refine_prompt)
-            if raw:
-                message = clean_response(raw)
-                if use_emoji:
-                    message = apply_gitmoji(message)
-        elif choice in ('s', 'select'):
-            types = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert"]
-            gitmojis = {
-                "feat": "✨", "fix": "🐛", "docs": "📝", "style": "🎨", "refactor": "♻️",
-                "perf": "⚡️", "test": "🧪", "build": "📦", "ci": "💚", "chore": "🔧", "revert": "⏪"
-            }
-            typer.echo("Select commit type:")
-            for i, t in enumerate(types, 1):
-                typer.echo(f"  {i}. {t} {gitmojis.get(t, '')}")
-            type_choice = typer.prompt("Choose type (number or name)", default="1")
+                typer.echo(f"Detected {len(groups)} independent changes:")
+                for idx, group in enumerate(groups, 1):
+                    files_str = ", ".join(group["files"])
+                    typer.echo(f"  {idx}. {group['suggested_message']} (files: {files_str})")
             
-            selected_type = "feat"
-            if type_choice.isdigit():
-                idx = int(type_choice) - 1
-                if 0 <= idx < len(types):
-                    selected_type = types[idx]
-            elif type_choice in types:
-                selected_type = type_choice
-            
-            include_emoji = typer.confirm("Include Gitmoji?", default=use_emoji)
-            message = update_commit_message_header(message, selected_type, include_emoji)
-        elif choice in ('n', 'no'):
-            typer.secho("Aborted.", fg=typer.colors.RED)
-            break
+            if raw or typer.confirm("Split into separate commits?", default=True):
+                # Save original staged files
+                original_files = get_staged_files()
+                
+                # Unstage all
+                subprocess.run(["git", "reset"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                
+                try:
+                    for idx, group in enumerate(groups, 1):
+                        if not raw:
+                            typer.echo(f"\nStaging changes for commit {idx}/{len(groups)}...")
+                        for f in group["files"]:
+                            subprocess.run(["git", "add", f], check=True)
+                        
+                        group_diff = get_staged_diff()
+                        if not group_diff:
+                            if not raw:
+                                typer.echo(f"No changes found for group {idx}. Skipping.")
+                            continue
+                        
+                        success = generate_and_review_commit_for_diff(
+                            diff=group_diff,
+                            provider_name=provider_name,
+                            provider_cfg=provider_cfg,
+                            raw=raw,
+                            dry_run=dry_run,
+                            emoji=emoji
+                        )
+                        if not success:
+                            if not raw:
+                                typer.secho(f"Commit {idx}/{len(groups)} aborted.", fg=typer.colors.RED)
+                                if not typer.confirm("Proceed with remaining groups?", default=True):
+                                    break
+                finally:
+                    # Re-stage any remaining uncommitted files that were originally staged
+                    for f in original_files:
+                        try:
+                            res = subprocess.run(["git", "status", "--porcelain", f], capture_output=True, text=True)
+                            if res.stdout.strip():
+                                subprocess.run(["git", "add", f], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        except Exception:
+                            pass
+                return
+
+    # Normal commit flow
+    generate_and_review_commit_for_diff(
+        diff=diff,
+        provider_name=provider_name,
+        provider_cfg=provider_cfg,
+        raw=raw,
+        dry_run=dry_run,
+        emoji=emoji
+    )
 
 
 @app.command()

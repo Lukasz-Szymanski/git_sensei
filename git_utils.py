@@ -529,5 +529,73 @@ def detect_monorepo_scope(changed_files: List[str], monorepo_config: dict) -> Op
     return None
 
 
+def split_staged_diff(diff: str) -> List[dict]:
+    """
+    Split staged changes diff into groups of files and suggest messages.
+    """
+    # Parse files and their diffs from the combined diff
+    file_diffs = re.split(r'(?=^diff --git )', diff, flags=re.MULTILINE)
+    file_diffs = [fd for fd in file_diffs if fd.strip()]
+    
+    files_by_group = {}
+    
+    for fd in file_diffs:
+        # Extract filename
+        first_line = fd.split('\n')[0]
+        match = re.search(r'^diff --git a/(.*?) b/(.*?)$', first_line)
+        filename = ""
+        if match:
+            b_path = match.group(2)
+            filename = match.group(1) if b_path in ("/dev/null", "dev/null") else b_path
+        
+        if not filename:
+            continue
+            
+        # Determine group key
+        if filename.endswith(".md") or filename.startswith("docs/"):
+            group_key = "docs"
+        elif filename.startswith("tests/") or "test_" in filename or "_test" in filename:
+            group_key = "test"
+        elif "/" in filename:
+            # Group by first 2 levels of directory if possible, e.g. packages/auth -> packages/auth
+            parts = filename.split("/")
+            if len(parts) > 2:
+                group_key = f"{parts[0]}/{parts[1]}"
+            else:
+                group_key = parts[0]
+        else:
+            group_key = "root"
+            
+        if group_key not in files_by_group:
+            files_by_group[group_key] = []
+        files_by_group[group_key].append((filename, fd))
+        
+    groups = []
+    for g_key, file_list in files_by_group.items():
+        filenames = [f[0] for f in file_list]
+        
+        # Build a simple suggested message
+        if g_key == "docs":
+            msg = "docs: update documentation"
+        elif g_key == "test":
+            msg = "test: update unit tests"
+        elif g_key == "root":
+            msg = "chore: update root configuration files"
+        else:
+            # E.g. packages/auth -> feat(auth): update auth
+            parts = g_key.split("/")
+            scope = parts[-1]
+            msg = f"feat({scope}): update {scope}"
+            
+        groups.append({
+            "files": filenames,
+            "suggested_message": msg,
+            "diff": "".join(f[1] for f in file_list)
+        })
+        
+    return groups
+
+
+
 
 
