@@ -126,18 +126,20 @@ class AIProvider:
             return ""
 
     def _execute_openai_api(self, diff: str, system_prompt: str) -> str:
+        url = self.api_url or "https://api.openai.com/v1/chat/completions"
+        is_local = "localhost" in url or "127.0.0.1" in url
         env_key_name = self.api_key_env or "OPENAI_API_KEY"
         api_key = os.getenv(env_key_name)
-        if not api_key:
+        if not api_key and not is_local:
             print(f"\n[Error] {env_key_name} environment variable not set.")
             print(f"Please set it using: export {env_key_name}='your_key'")
             return ""
             
+        key_val = api_key or "dummy"
         model = self.model or "gpt-4o-mini"
-        url = self.api_url or "https://api.openai.com/v1/chat/completions"
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}"
+            "Authorization": f"Bearer {key_val}"
         }
         payload = {
             "model": model,
@@ -178,6 +180,9 @@ class AIProvider:
         if self.api_type == "gemini":
             return os.getenv("GEMINI_API_KEY") is not None
         elif self.api_type == "openai" or self.api_url:
+            url = self.api_url or "https://api.openai.com/v1/chat/completions"
+            if "localhost" in url or "127.0.0.1" in url:
+                return True
             env_key = self.api_key_env or "OPENAI_API_KEY"
             return os.getenv(env_key) is not None
 

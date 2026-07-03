@@ -63,5 +63,25 @@ class TestRedactionAndCustomAPI(unittest.TestCase):
         self.assertEqual(args.full_url, "https://api.deepseek.com/v1/chat/completions")
         self.assertEqual(args.get_header("Authorization"), "Bearer test-key-123")
 
+    @patch("urllib.request.urlopen")
+    def test_local_provider_without_key(self, mock_urlopen):
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"choices": [{"message": {"content": "feat: local message"}}]}'
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        config = {
+            "api_url": "http://localhost:11434/v1/chat/completions",
+            "model": "llama3"
+        }
+        provider = AIProvider("ollama", config)
+        self.assertTrue(provider.check_health())
+        
+        result = provider.execute("some diff", "system prompt")
+        self.assertEqual(result, "feat: local message")
+        
+        args = mock_urlopen.call_args[0][0]
+        self.assertEqual(args.full_url, "http://localhost:11434/v1/chat/completions")
+        self.assertEqual(args.get_header("Authorization"), "Bearer dummy")
+
 if __name__ == "__main__":
     unittest.main()

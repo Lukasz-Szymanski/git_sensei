@@ -163,6 +163,42 @@ Start DIRECTLY with type."""
 - `prompt` - custom prompt per provider (optional)
 - Git diff is piped to stdin
 
+### Custom OpenAI-Compatible & Local LLM (Ollama) Setup
+
+You can configure Git-Sensei to use local models running via Ollama or custom OpenAI-compatible endpoints (like DeepSeek, Groq, OpenRouter) natively or via CLI.
+
+Add the following to your `~/.sensei.toml`:
+
+#### Option A: Local Ollama via Native HTTP API (Recommended)
+This uses Ollama's built-in OpenAI-compatible endpoint. No API key is required.
+
+```toml
+[providers.ollama_api]
+description = "Local Llama 3 via Ollama API"
+api_url = "http://localhost:11434/v1/chat/completions"
+model = "llama3"
+```
+
+#### Option B: Local Ollama via CLI Command
+This pipes the diff directly into the `ollama` command line tool.
+
+```toml
+[providers.ollama_cli]
+description = "Local Llama 3 via CLI"
+command = "ollama run llama3 \"{system}\""
+```
+
+#### Option C: Custom OpenAI-Compatible API (e.g. DeepSeek)
+You can point to any external API and map its API key to a custom environment variable.
+
+```toml
+[providers.deepseek]
+description = "DeepSeek Coder API"
+api_url = "https://api.deepseek.com/v1/chat/completions"
+api_key_env = "DEEPSEEK_API_KEY"
+model = "deepseek-coder"
+```
+
 ### Tuning Prompts
 
 Use dry run to test your prompt without committing:
