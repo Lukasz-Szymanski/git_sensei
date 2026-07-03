@@ -45,11 +45,11 @@ def extract_issue_id(branch_name: str) -> Optional[str]:
     Linear (LIN-123), Shortcut (sc-123)
     """
     patterns = [
-        (r'(AB#\d+)', None),                # Azure DevOps
-        (r'issue[/-](\d+)', '#{}'),         # issue-123 -> #123
+        (r'(?:ado|ab#)[/-]?(\d+)', 'AB#{}'), # Azure DevOps
+        (r'(?:gh|issue)[/-](\d+)', '#{}'),   # GitHub
         (r'sc[/-](\d+)', 'sc-{}'),          # Shortcut
         (r'(?:^|/)#(\d+)', '#{}'),          # GitHub/GitLab
-        (r'([A-Z]{2,}-\d+)', None),         # Jira/Linear
+        (r'([a-z]{2,}-\d+)', 'UPPER'),      # Jira/Linear
         (r'[/-](\d+)[/-]', '#{}'),          # feature/1-description -> #1
         (r'[/-](\d+)$', '#{}'),             # feature/1 -> #1
     ]
@@ -57,8 +57,10 @@ def extract_issue_id(branch_name: str) -> Optional[str]:
     for pattern, format_str in patterns:
         match = re.search(pattern, branch_name, re.IGNORECASE)
         if match:
+            if format_str == 'UPPER':
+                return match.group(1).upper()
             if format_str:
-                return format_str.format(match.group(1))
+                return format_str.format(*match.groups())
             return match.group(1)
 
     return None
@@ -153,3 +155,54 @@ def get_git_context() -> dict:
         'commits_ahead': commits_ahead,
         'context_summary': '; '.join(summary_parts) if summary_parts else None,
     }
+
+def get_amend_diff() -> Optional[str]:
+    """Get diff for amending the last commit (includes staged changes)."""
+    try:
+        # Check if HEAD~1 exists
+        subprocess.check_call(["git", "rev-parse", "HEAD~1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        diff_cmd = ["git", "diff", "HEAD~1", "--staged"]
+    except subprocess.CalledProcessError:
+        # Initial commit fallback (diff against empty tree)
+        diff_cmd = ["git", "diff", "4b825dc642cb6eb9a060e54bf8d69288fbee4904", "--staged"]
+        
+    result = subprocess.run(
+        diff_cmd,
+        capture_output=True, text=True, encoding='utf-8', errors='replace'
+    )
+    if result.returncode == 0 and result.stdout.strip():
+        return result.stdout
+    return None
+
+def amend_commit(message: str) -> bool:
+    """Amend the last git commit with the given message."""
+    try:
+        subprocess.run(["git", "commit", "--amend", "-m", message], check=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def get_last_commit_message() -> Optional[str]:
+    """Get the message of the last commit."""
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--pretty=%B"],
+            capture_output=True, text=True, encoding='utf-8', check=True
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        return None
+
+
+def is_commit_pushed(commit: str = "HEAD") -> bool:
+    """Check if a specific commit is pushed to any remote branch."""
+    try:
+        result = subprocess.run(
+            ["git", "branch", "-r", "--contains", commit],
+            capture_output=True, text=True, encoding='utf-8'
+        )
+        return bool(result.stdout.strip())
+    except subprocess.CalledProcessError:
+        return False
+

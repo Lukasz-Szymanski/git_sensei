@@ -11,8 +11,7 @@ from typing import Optional
 from config import ConfigManager
 from providers import AIProvider
 from secrets_shield import scan_diff, format_warning
-from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context
-
+from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context, get_amend_diff, amend_commit, get_last_commit_message, is_commit_pushed
 app = typer.Typer(
     help="Git-Sensei: AI-powered commit message generator. Quick start: git add . && sensei commit",
     add_completion=False,
@@ -325,6 +324,119 @@ def commit(
             raw = ai.execute(diff, prompt)
             if raw:
                 message = clean_response(raw)
+                if use_emoji:
+                    message = apply_gitmoji(message)
+        elif choice in ('n', 'no'):
+            typer.secho("Aborted.", fg=typer.colors.RED)
+            break
+
+
+@app.command()
+def amend(
+    provider: str = typer.Option(None, "-p", "--provider", help="AI provider to use."),
+    dry_run: bool = typer.Option(False, "-d", "--dry-run", help="Preview without amending."),
+    emoji: Optional[bool] = typer.Option(None, "--emoji/--no-emoji", help="Enable/disable Gitmoji support."),
+    raw: bool = typer.Option(False, "--raw", help="Output raw commit message to stdout and exit.")
+):
+    """Rewrite last commit message with AI."""
+    if not shutil.which("git"):
+        typer.secho("Git not found!", fg=typer.colors.RED)
+        sys.exit(1)
+
+    provider_name = provider or config_mgr.get_default_provider()
+    provider_cfg = config_mgr.get_provider_config(provider_name)
+
+    if not provider_cfg:
+        typer.secho(f"Provider '{provider_name}' not found.", fg=typer.colors.RED)
+        typer.echo("Use 'sensei ls' to see available providers.")
+        sys.exit(1)
+
+    if not raw:
+        typer.echo(f"Using: {provider_name}")
+
+    diff = get_amend_diff()
+    if not diff:
+        if not raw:
+            typer.secho("No commits to amend or no changes found.", fg=typer.colors.YELLOW)
+        sys.exit(0)
+
+    # Secrets check
+    secrets_cfg = config_mgr.config.get("secrets", {})
+    secrets_action = secrets_cfg.get("action", "warn").lower()
+
+    if secrets_action != "ignore":
+        secrets = scan_diff(diff, custom_patterns=secrets_cfg.get("custom_patterns"))
+        if secrets:
+            if not raw:
+                typer.secho(format_warning(secrets), fg=typer.colors.YELLOW)
+                if secrets_action == "block":
+                    typer.secho("Amend blocked due to detected secrets (action=block).", fg=typer.colors.RED)
+                    sys.exit(1)
+                elif not typer.confirm("Continue anyway?", default=False):
+                    sys.exit(1)
+            else:
+                if secrets_action == "block":
+                    sys.exit(1)
+
+    git_context = get_git_context()
+
+    current_msg = get_last_commit_message() or ""
+    
+    if not raw and is_commit_pushed():
+        typer.secho("⚠️  WARNING: The last commit has already been pushed to a remote.", fg=typer.colors.YELLOW)
+        typer.secho("Amending will rewrite history and require a force push.", fg=typer.colors.YELLOW)
+        if not typer.confirm("Continue anyway?", default=True):
+            sys.exit(0)
+
+    if not raw and git_context.get('context_summary'):
+        typer.secho(f"Context: {git_context['context_summary']}", fg=typer.colors.CYAN)
+
+    if not raw:
+        typer.echo("Thinking...")
+    
+    base_prompt = provider_cfg.get("prompt") or config_mgr.get_universal_prompt() or DEFAULT_PROMPT
+    prompt = build_prompt_with_context(base_prompt, git_context)
+    ai = AIProvider(provider_name, provider_cfg)
+    raw_response = ai.execute(diff, prompt)
+
+    message = clean_response(raw_response) if raw_response else call_local_fallback(diff)
+
+    use_emoji = emoji if emoji is not None else config_mgr.config.get("core", {}).get("emoji", False)
+    if use_emoji:
+        message = apply_gitmoji(message)
+
+    if raw:
+        print(message)
+        sys.exit(0)
+
+    while True:
+        typer.echo("-" * 50)
+        if current_msg:
+            typer.echo("Current:   ", nl=False)
+            typer.secho(current_msg, fg=typer.colors.RED)
+        typer.echo("Suggested: ", nl=False)
+        typer.secho(message, fg=typer.colors.GREEN)
+        typer.echo("-" * 50)
+
+        if dry_run:
+            break
+
+        choice = typer.prompt("[y]es, [n]o, [e]edit, [r]etry", default="y").lower()
+
+        if choice in ('y', 'yes'):
+            if amend_commit(message):
+                typer.secho("Amended!", fg=typer.colors.GREEN)
+            break
+        elif choice in ('e', 'edit'):
+            edited = edit_in_editor(message)
+            if edited:
+                message = edited
+            else:
+                typer.secho("Edit cancelled, keeping original message.", fg=typer.colors.YELLOW)
+        elif choice in ('r', 'retry'):
+            raw_resp = ai.execute(diff, prompt)
+            if raw_resp:
+                message = clean_response(raw_resp)
                 if use_emoji:
                     message = apply_gitmoji(message)
         elif choice in ('n', 'no'):
