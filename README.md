@@ -87,6 +87,7 @@ The wizard will:
 | ------------------------- | -------------------------------------- |
 | `sensei init`             | Interactive setup wizard (with connection test) |
 | `sensei commit`           | Generate and create a commit           |
+| `sensei amend`            | Rewrite the last commit message using AI |
 | `sensei commit -p claude` | Use specific provider                  |
 | `sensei commit -d`        | Dry run (preview only)                 |
 | `sensei commit --emoji`   | Generate commit with Gitmoji prefix    |
@@ -99,6 +100,7 @@ The wizard will:
 
 ```bash
 sensei commit                 # Use default provider (Antigravity CLI)
+sensei amend                  # Rewrite last commit message
 sensei commit -p gemini-api   # Use Native Gemini API (requires GEMINI_API_KEY)
 sensei commit --emoji         # Generate with emojis (e.g. ✨ feat: add login)
 sensei commit -d              # Preview without committing
@@ -233,6 +235,12 @@ git_sensei/
 
 <details>
 <summary>Version history</summary>
+
+### v0.14.0 (2026-07-03)
+
+- Added `sensei amend` command to rewrite the last commit message with AI analysis
+- Added safety checks to prevent accidental rewrites of pushed commits without warning
+- Enhanced Smart Context with expanded issue ID patterns (e.g., `gh-123`, `ado-123`) and auto-uppercasing
 
 ### v0.13.0 (2026-07-01)
 
