@@ -16,3 +16,4 @@ dist/
 .coverage
 .pytest_cache/
 .agents/
+PROJECT.md
