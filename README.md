@@ -220,6 +220,62 @@ Sensei uses this priority to find your editor:
 3. `git config core.editor`
 4. Platform default (notepad on Windows, nano on Linux/Mac)
 
+## CLI Commands & Diagnostics
+
+Sensei provides several diagnostic and helper commands to ensure quality and track your AI usage.
+
+<details>
+<summary><b>📊 sensei stats</b> (Track usage statistics)</summary>
+
+Displays local commit generation statistics, acceptance rate, model breakdown, and most common commit types.
+
+```bash
+$ sensei stats
+Git-Sensei Statistics
+──────────────────────
+Commits generated:  42
+Acceptance rate:    88% (37 accepted, 5 rejected)
+Provider usage:     gemini-api (76%), openai (24%)
+Most common type:   feat (52%), fix (30%), refactor (10%)
+Average msg length: 145 chars
+```
+
+Use `sensei stats --json` to export raw JSON, or `sensei stats --reset` to clear local stats.
+</details>
+
+<details>
+<summary><b>📜 sensei log</b> (Colored git history & validation)</summary>
+
+Displays recent commits with Conventional Commits color-coding and format validation markers (`✓` for valid, `✗` for invalid).
+
+```bash
+$ sensei log -n 5
+* 79c5291 chore: remove PROJECT.md tracking and add to ignore  ✓
+* fef09a0 chore: ignore .agents directory in gitignore  ✓
+* f5838f7 feat(custom-api): implement custom API support and secret redaction  ✓
+* bf4f1ef feat(split): implement atomic diff splitting  ✓
+* 3a104f2 docs: update documentation with invalid markdown `formatting`  ✗
+```
+
+Use `sensei log --stats` to print a Conventional Commits compliance summary at the end.
+</details>
+
+<details>
+<summary><b>🔍 sensei lint</b> (Commit message validation)</summary>
+
+Validates a commit message against Conventional Commits formatting rules, line lengths (max 72 chars), and checks for disallowed markdown styles (like backticks or bold text).
+
+```bash
+$ sensei lint "feat(auth): add google sign-in option"
+✓ Commit message is valid.
+
+$ sensei lint "feat: update `README` file with markdown"
+✗ Commit message validation failed:
+  - First line contains disallowed markdown formatting (backticks, bold, italic).
+```
+</details>
+
+
 ## Project Structure
 
 ```
