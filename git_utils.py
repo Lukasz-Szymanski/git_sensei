@@ -153,3 +153,29 @@ def get_git_context() -> dict:
         'commits_ahead': commits_ahead,
         'context_summary': '; '.join(summary_parts) if summary_parts else None,
     }
+
+def get_amend_diff() -> Optional[str]:
+    """Get diff for amending the last commit (includes staged changes)."""
+    try:
+        # Check if HEAD~1 exists
+        subprocess.check_call(["git", "rev-parse", "HEAD~1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        diff_cmd = ["git", "diff", "HEAD~1", "--staged"]
+    except subprocess.CalledProcessError:
+        # Initial commit fallback (diff against empty tree)
+        diff_cmd = ["git", "diff", "4b825dc642cb6eb9a060e54bf8d69288fbee4904", "--staged"]
+        
+    result = subprocess.run(
+        diff_cmd,
+        capture_output=True, text=True, encoding='utf-8', errors='replace'
+    )
+    if result.returncode == 0 and result.stdout.strip():
+        return result.stdout
+    return None
+
+def amend_commit(message: str) -> bool:
+    """Amend the last git commit with the given message."""
+    try:
+        subprocess.run(["git", "commit", "--amend", "-m", message], check=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False

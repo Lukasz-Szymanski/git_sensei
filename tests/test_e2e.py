@@ -77,5 +77,31 @@ class TestEndToEnd(unittest.TestCase):
         log_result = subprocess.run(["git", "log"], capture_output=True, text=True)
         self.assertNotEqual(log_result.returncode, 0) # git log fails if there are no commits
 
+    @patch("main.AIProvider")
+    def test_full_amend_flow(self, mock_provider_class):
+        """Test full amend flow rewriting last commit using mocked AI."""
+        # Setup mock AI
+        mock_provider = mock_provider_class.return_value
+        mock_provider.execute.return_value = "feat: amended commit message\n\nMock amended body"
+        
+        # Create and stage a file, then commit
+        with open("test_amend.txt", "w") as f:
+            f.write("Amend me")
+        subprocess.run(["git", "add", "test_amend.txt"], check=True)
+        subprocess.run(["git", "commit", "-m", "initial commit"], check=True)
+        
+        # Run sensei amend, simulating "y" to accept the commit
+        result = runner.invoke(app, ["amend", "--provider", "echo"], input="y\n")
+        
+        # Verify CLI output
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("feat: amended commit message", result.stdout)
+        self.assertIn("Amended!", result.stdout)
+        
+        # Verify git log to ensure the commit was actually amended
+        log_result = subprocess.run(["git", "log", "-1", "--pretty=%B"], capture_output=True, text=True)
+        self.assertIn("feat: amended commit message", log_result.stdout)
+        self.assertNotIn("initial commit", log_result.stdout)
+
 if __name__ == "__main__":
     unittest.main()
