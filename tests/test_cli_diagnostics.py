@@ -53,18 +53,18 @@ class TestCLIDiagnostics(unittest.TestCase):
     def test_lint_command_invalid(self):
         result = self.runner.invoke(app, ["lint", "invalid format message"])
         self.assertEqual(result.exit_code, 1)
-        self.assertIn("validation failed", result.stdout + result.stderr)
+        self.assertIn("validation failed", result.output)
 
     def test_lint_command_long_line(self):
         long_msg = "feat: " + ("a" * 80)
         result = self.runner.invoke(app, ["lint", long_msg])
         self.assertEqual(result.exit_code, 1)
-        self.assertIn("exceeds 72 characters", result.stdout + result.stderr)
+        self.assertIn("exceeds 72 characters", result.output)
 
     def test_lint_command_disallowed_markdown(self):
         result = self.runner.invoke(app, ["lint", "feat: update `README`"])
         self.assertEqual(result.exit_code, 1)
-        self.assertIn("disallowed markdown", result.stdout + result.stderr)
+        self.assertIn("disallowed markdown", result.output)
 
     def test_lint_from_file(self):
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
