@@ -238,6 +238,8 @@ git_sensei/
 
 ### v0.14.0 (2026-07-03)
 
+- Added custom prompt configuration (languages, style overrides, file templates) and few-shot log history injection (Milestone 1)
+- Added smart diff truncation and file filtering (lockfiles, binaries, minified assets) supporting smart/head/tail/sample strategies (Milestone 2)
 - Added `sensei amend` command to rewrite the last commit message with AI analysis
 - Added safety checks to prevent accidental rewrites of pushed commits without warning
 - Enhanced Smart Context with expanded issue ID patterns (e.g., `gh-123`, `ado-123`) and auto-uppercasing
