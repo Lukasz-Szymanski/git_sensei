@@ -45,11 +45,11 @@ def extract_issue_id(branch_name: str) -> Optional[str]:
     Linear (LIN-123), Shortcut (sc-123)
     """
     patterns = [
-        (r'(AB#\d+)', None),                # Azure DevOps
-        (r'issue[/-](\d+)', '#{}'),         # issue-123 -> #123
+        (r'(?:ado|ab#)[/-]?(\d+)', 'AB#{}'), # Azure DevOps
+        (r'(?:gh|issue)[/-](\d+)', '#{}'),   # GitHub
         (r'sc[/-](\d+)', 'sc-{}'),          # Shortcut
         (r'(?:^|/)#(\d+)', '#{}'),          # GitHub/GitLab
-        (r'([A-Z]{2,}-\d+)', None),         # Jira/Linear
+        (r'([a-z]{2,}-\d+)', 'UPPER'),      # Jira/Linear
         (r'[/-](\d+)[/-]', '#{}'),          # feature/1-description -> #1
         (r'[/-](\d+)$', '#{}'),             # feature/1 -> #1
     ]
@@ -57,8 +57,10 @@ def extract_issue_id(branch_name: str) -> Optional[str]:
     for pattern, format_str in patterns:
         match = re.search(pattern, branch_name, re.IGNORECASE)
         if match:
+            if format_str == 'UPPER':
+                return match.group(1).upper()
             if format_str:
-                return format_str.format(match.group(1))
+                return format_str.format(*match.groups())
             return match.group(1)
 
     return None
