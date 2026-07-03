@@ -114,7 +114,38 @@ def get_commits_ahead_of_main() -> int:
     return 0
 
 
-def get_git_context() -> dict:
+def get_staged_files() -> List[str]:
+    """Get list of staged files."""
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--staged", "--name-only"],
+            capture_output=True, text=True, encoding='utf-8', check=True
+        )
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    except Exception:
+        return []
+
+
+def get_amend_files() -> List[str]:
+    """Get list of files changed in last commit + staged."""
+    try:
+        # Check if HEAD~1 exists
+        subprocess.check_call(["git", "rev-parse", "HEAD~1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        diff_cmd = ["git", "diff", "HEAD~1", "--staged", "--name-only"]
+    except subprocess.CalledProcessError:
+        diff_cmd = ["git", "diff", "4b825dc642cb6eb9a060e54bf8d69288fbee4904", "--staged", "--name-only"]
+        
+    try:
+        result = subprocess.run(
+            diff_cmd,
+            capture_output=True, text=True, encoding='utf-8', check=True
+        )
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    except Exception:
+        return []
+
+
+def get_git_context(config: Optional[dict] = None) -> dict:
     """
     Gather full git context for AI prompt.
 
@@ -122,6 +153,7 @@ def get_git_context() -> dict:
         - branch: current branch name
         - issue_id: extracted issue ID or None
         - branch_type: feat/fix/etc or None
+        - scope: detected monorepo scope or None
         - is_pushed: whether branch exists on remote
         - commits_ahead: number of commits ahead of main
         - context_summary: human-readable summary
@@ -132,6 +164,15 @@ def get_git_context() -> dict:
     is_pushed = is_branch_pushed(branch)
     commits_ahead = get_commits_ahead_of_main()
 
+    # Detect monorepo scope
+    scope = None
+    if config:
+        monorepo_cfg = config.get("monorepo", {})
+        staged_files = get_staged_files()
+        if not staged_files:
+            staged_files = get_amend_files()
+        scope = detect_monorepo_scope(staged_files, monorepo_cfg)
+
     # Build context summary
     summary_parts = []
 
@@ -140,6 +181,8 @@ def get_git_context() -> dict:
     else:
         if branch_type:
             summary_parts.append(f"Type: {branch_type}")
+        if scope:
+            summary_parts.append(f"Scope: {scope}")
         if issue_id:
             summary_parts.append(f"Closes issue {issue_id}")
         if not is_pushed:
@@ -151,6 +194,7 @@ def get_git_context() -> dict:
         'branch': branch,
         'issue_id': issue_id,
         'branch_type': branch_type,
+        'scope': scope,
         'is_pushed': is_pushed,
         'commits_ahead': commits_ahead,
         'context_summary': '; '.join(summary_parts) if summary_parts else None,
@@ -412,6 +456,78 @@ def get_staged_diff_filtered(config: dict, diff_override: Optional[str] = None) 
         "truncated": truncated,
         "strategy": strategy if truncated else None
     }
+
+
+def detect_monorepo_scope(changed_files: List[str], monorepo_config: dict) -> Optional[str]:
+    """
+    Detect commit scope from changed files in a monorepo setting.
+    """
+    if not monorepo_config or not monorepo_config.get("enabled", False):
+        return None
+
+    if not changed_files:
+        return None
+
+    custom_scopes = monorepo_config.get("scopes", {})
+    # Sort custom scopes keys by length descending to match deepest first
+    sorted_custom_keys = sorted(custom_scopes.keys(), key=len, reverse=True)
+
+    # Determine packages directories
+    packages_dirs = []
+    p_dirs = monorepo_config.get("packages_dirs")
+    if isinstance(p_dirs, list):
+        packages_dirs.extend(p_dirs)
+    p_dir = monorepo_config.get("packages_dir")
+    if isinstance(p_dir, str) and p_dir:
+        packages_dirs.append(p_dir)
+    if not p_dirs and not p_dir:
+        packages_dirs.extend(["packages", "apps", "libs"])
+
+    # Clean package dirs to end with /
+    packages_prefixes = []
+    for d in packages_dirs:
+        d_clean = d.strip("/")
+        if d_clean:
+            packages_prefixes.append(d_clean + "/")
+
+    scope_counts = {}
+
+    for filepath in changed_files:
+        matched_scope = None
+        
+        # 1. Try custom scopes first (deepest match wins)
+        for key in sorted_custom_keys:
+            # Check prefix or glob match
+            if filepath.startswith(key.strip("/") + "/") or filepath == key or fnmatch.fnmatch(filepath, key):
+                matched_scope = custom_scopes[key]
+                break
+
+        # 2. Try inferring from monorepo directories
+        if not matched_scope:
+            for prefix in packages_prefixes:
+                if filepath.startswith(prefix):
+                    # Extract the package name (the segment immediately following prefix)
+                    remaining = filepath[len(prefix):]
+                    parts = remaining.split("/")
+                    if parts and parts[0]:
+                        matched_scope = parts[0]
+                        break
+
+        if matched_scope:
+            scope_counts[matched_scope] = scope_counts.get(matched_scope, 0) + 1
+
+    if not scope_counts:
+        return None
+
+    # Find the scope with the maximum count
+    max_count = max(scope_counts.values())
+    candidates = [scope for scope, count in scope_counts.items() if count == max_count]
+
+    # If there is a tie or it's ambiguous, return None (unclear)
+    if len(candidates) == 1:
+        return candidates[0]
+    return None
+
 
 
 

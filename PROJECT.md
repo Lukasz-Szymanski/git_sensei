@@ -14,7 +14,7 @@ Git-Sensei is a Python CLI built on `typer`. It interacts with Git via `subproce
 |---|------|-------|-------------|--------|
 | 1 | Custom Prompts & Few-Shot History | Support prompt customization, few-shot logging, languages, emojis, line length | None | COMPLETED |
 | 2 | Smart Truncation & Filtering | Token budget, lockfile skip/summarize, smart strategies (smart, head, tail, sample) | M1 | COMPLETED |
-| 3 | Monorepo Scope Auto-Detection | Match directory structure and globs to conventional commit scopes | M1 | PLANNED |
+| 3 | Monorepo Scope Auto-Detection | Match directory structure and globs to conventional commit scopes | M1 | COMPLETED |
 | 4 | Interactive Selector & Refinement | Type/emoji interactive selector, text refinement loop for commit messages | M1 | PLANNED |
 | 5 | Atomic Diff Splitter | Split staged diff into multiple commits, interactive staging/committing | M2, M4 | PLANNED |
 | 6 | Custom API Endpoints & Redaction | OpenAI-compatible custom API support, auto-redacting secrets in diffs with [REDACTED] | M2 | PLANNED |

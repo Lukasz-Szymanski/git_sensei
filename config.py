@@ -110,6 +110,11 @@ RULES:
             "dist/*",
             "build/*"
         ]
+    },
+    "monorepo": {
+        "enabled": False,
+        "packages_dirs": ["packages", "apps", "libs"],
+        "scopes": {}
     }
 }
 

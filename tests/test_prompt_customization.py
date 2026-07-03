@@ -197,6 +197,29 @@ class TestPromptCustomization(unittest.TestCase):
         self.assertIn("RECENT COMMITS:", prompt)
         self.assertIn("chore: clean files", prompt)
 
+    def test_build_prompt_with_context_scope(self):
+        """Verify that scope is included in the context of build_prompt_with_context."""
+        base_prompt = "Header\n{context}"
+        git_context = {
+            "context_summary": "Type: feat; Scope: auth",
+            "branch_type": "feat",
+            "scope": "auth"
+        }
+        prompt_cfg = {
+            "language": "en",
+            "style": "conventional",
+            "max_length": 72,
+            "template": "conventional",
+            "few_shot": 3
+        }
+        prompt = build_prompt_with_context(
+            base_prompt=base_prompt,
+            git_context=git_context,
+            prompt_cfg=prompt_cfg,
+            recent_commits=[]
+        )
+        self.assertIn("SUGGESTED SCOPE: auth", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

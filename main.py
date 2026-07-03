@@ -84,6 +84,8 @@ def build_prompt_with_context(base_prompt: str, git_context: dict, prompt_cfg: d
         context_lines.append(f"CONTEXT: {git_context['context_summary']}")
     if git_context.get('branch_type'):
         context_lines.append(f"SUGGESTED TYPE: {git_context['branch_type']}")
+    if git_context.get('scope'):
+        context_lines.append(f"SUGGESTED SCOPE: {git_context['scope']}")
     context_str = '\n'.join(context_lines) if context_lines else ''
 
     issue_id = git_context.get('issue_id')
@@ -344,7 +346,7 @@ def commit(
                     sys.exit(1)
 
     # Gather git context
-    git_context = get_git_context()
+    git_context = get_git_context(config_mgr.config)
 
     # Show context info
     if not raw and git_context.get('context_summary'):
@@ -460,7 +462,7 @@ def amend(
                 if secrets_action == "block":
                     sys.exit(1)
 
-    git_context = get_git_context()
+    git_context = get_git_context(config_mgr.config)
 
     current_msg = get_last_commit_message() or ""
     
