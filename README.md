@@ -362,6 +362,8 @@ git_sensei/
 - Added `sensei amend` command to rewrite the last commit message with AI analysis
 - Added safety checks to prevent accidental rewrites of pushed commits without warning
 - Enhanced Smart Context with expanded issue ID patterns (e.g., `gh-123`, `ado-123`) and auto-uppercasing
+- Published package to PyPI as `git-sensei-ai` and created Homebrew Formula Tap (`brew install git-sensei-ai`)
+- Added local Ollama integration configurations and removed mandatory API key check for local endpoints
 
 ### v0.13.0 (2026-07-01)
 
