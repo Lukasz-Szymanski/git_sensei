@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="git-sensei",
+    name="git-sensei-ai",
     version="0.14.0",
     description="AI-powered git commit helper with smart truncation, monorepo detection, and secret redaction.",
     long_description=open("README.md", "r", encoding="utf-8").read(),
