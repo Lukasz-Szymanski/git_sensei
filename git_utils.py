@@ -1,7 +1,7 @@
 """Git utilities for sensei."""
 import subprocess
 import re
-from typing import Optional
+from typing import Optional, List
 
 
 def get_current_branch() -> str:
@@ -205,4 +205,26 @@ def is_commit_pushed(commit: str = "HEAD") -> bool:
         return bool(result.stdout.strip())
     except subprocess.CalledProcessError:
         return False
+
+
+def get_recent_commits(limit: int = 3, start_ref: str = "HEAD") -> List[str]:
+    """Fetch messages of the last limit commits starting from start_ref, filtering out merges."""
+    if limit <= 0:
+        return []
+    try:
+        result = subprocess.run(
+            ["git", "log", start_ref, f"-{limit}", "--no-merges", "--format=%B===COMMIT_MSG_DELIMITER==="],
+            capture_output=True, text=True, encoding='utf-8', check=True
+        )
+        output = result.stdout
+        parts = output.split("===COMMIT_MSG_DELIMITER===")
+        commits = []
+        for part in parts:
+            stripped = part.strip()
+            if stripped:
+                commits.append(stripped)
+        return commits
+    except Exception:
+        return []
+
 

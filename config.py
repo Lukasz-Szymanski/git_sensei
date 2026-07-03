@@ -16,6 +16,17 @@ DEFAULT_CONFIG = {
     "core": {
         "default_provider": "antigravity"
     },
+    "prompt": {
+        "language": "en",
+        "style": "conventional",
+        "max_length": 72,
+        "template": "conventional",
+        "custom": {
+            "header": "",
+            "footer": ""
+        },
+        "few_shot": 3
+    },
     "prompts": {
         "universal": """You are a professional git commit message generator.
 
@@ -139,6 +150,32 @@ class ConfigManager:
     def get_universal_prompt(self) -> str:
         """Get the universal prompt template."""
         return self.config.get("prompts", {}).get("universal", "")
+
+    def get_prompt_config(self) -> dict:
+        """Retrieve the prompt configuration keys. If template is a file path, return its content."""
+        default_prompt = DEFAULT_CONFIG.get("prompt", {})
+        cfg = {}
+        for k, v in default_prompt.items():
+            if isinstance(v, dict):
+                cfg[k] = v.copy()
+            else:
+                cfg[k] = v
+        
+        user_prompt = self.config.get("prompt", {})
+        for k, v in user_prompt.items():
+            if isinstance(v, dict) and k in cfg and isinstance(cfg[k], dict):
+                cfg[k].update(v)
+            else:
+                cfg[k] = v
+        
+        template = cfg.get("template")
+        if isinstance(template, str) and os.path.exists(template) and os.path.isfile(template):
+            try:
+                with open(template, "r", encoding="utf-8") as f:
+                    cfg["template"] = f.read()
+            except Exception:
+                pass
+        return cfg
 
     def get_config_path(self) -> str:
         """Returns the path to user's config file (creates if needed)."""

@@ -11,7 +11,7 @@ from typing import Optional
 from config import ConfigManager
 from providers import AIProvider
 from secrets_shield import scan_diff, format_warning
-from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context, get_amend_diff, amend_commit, get_last_commit_message, is_commit_pushed
+from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context, get_amend_diff, amend_commit, get_last_commit_message, is_commit_pushed, get_recent_commits
 app = typer.Typer(
     help="Git-Sensei: AI-powered commit message generator. Quick start: git add . && sensei commit",
     add_completion=False,
@@ -50,26 +50,83 @@ RULES:
 {context}"""
 
 
-def build_prompt_with_context(base_prompt: str, git_context: dict) -> str:
-    """Build final prompt with git context injected."""
-    context_lines = []
+def build_prompt_with_context(base_prompt: str, git_context: dict, prompt_cfg: dict = None, recent_commits: list = None) -> str:
+    """Build final prompt with git context injected, applying prompt customization and few-shot examples."""
+    # Check if config is default or missing
+    is_default = False
+    if not prompt_cfg:
+        is_default = True
+    else:
+        is_default = (
+            prompt_cfg.get("language") == "en" and
+            prompt_cfg.get("style") == "conventional" and
+            prompt_cfg.get("max_length") == 72 and
+            prompt_cfg.get("template") == "conventional" and
+            prompt_cfg.get("few_shot") == 3 and
+            prompt_cfg.get("custom", {}).get("header", "") == "" and
+            prompt_cfg.get("custom", {}).get("footer", "") == ""
+        )
 
+    context_lines = []
     if git_context.get('context_summary'):
         context_lines.append(f"CONTEXT: {git_context['context_summary']}")
-
     if git_context.get('branch_type'):
         context_lines.append(f"SUGGESTED TYPE: {git_context['branch_type']}")
-
     context_str = '\n'.join(context_lines) if context_lines else ''
 
-    # Handle issue footer
     issue_id = git_context.get('issue_id')
-    if issue_id:
-        issue_footer = f"Closes {issue_id}"
-    else:
-        issue_footer = ""
+    issue_footer = f"Closes {issue_id}" if issue_id else ""
 
-    return base_prompt.replace('{context}', context_str).replace('{issue_footer}', issue_footer)
+    if is_default and base_prompt:
+        return base_prompt.replace('{context}', context_str).replace('{issue_footer}', issue_footer)
+
+    # Custom template prompt compilation
+    if prompt_cfg and prompt_cfg.get("template") == "custom":
+        header = prompt_cfg.get("custom", {}).get("header", "")
+        footer = prompt_cfg.get("custom", {}).get("footer", "")
+        context_summary = git_context.get("context_summary", "")
+        
+        examples_str = ""
+        if recent_commits:
+            limit = prompt_cfg.get("few_shot", 3)
+            history = recent_commits[:limit]
+            if history:
+                examples_str = "Few-shot examples:\n" + "\n".join(f"- {msg}" for msg in history)
+        
+        parts = []
+        if header:
+            parts.append(header)
+        if context_summary:
+            parts.append(f"Context: {context_summary}")
+        if examples_str:
+            parts.append(examples_str)
+        if footer:
+            parts.append(footer)
+            
+        return "\n\n".join(parts)
+
+    # Otherwise: Append rules and recent commits
+    prompt = base_prompt.replace('{context}', context_str).replace('{issue_footer}', issue_footer)
+    
+    rules = []
+    if prompt_cfg:
+        if prompt_cfg.get("language"):
+            rules.append(f"Language: {prompt_cfg['language']}")
+        if prompt_cfg.get("style"):
+            rules.append(f"Style: {prompt_cfg['style']}")
+        if prompt_cfg.get("max_length"):
+            rules.append(f"Max length: {prompt_cfg['max_length']} characters")
+            
+    if rules:
+        prompt += "\n\nADDITIONAL RULES:\n" + "\n".join(f"- {rule}" for rule in rules)
+        
+    if recent_commits and prompt_cfg:
+        limit = prompt_cfg.get("few_shot", 3)
+        history = recent_commits[:limit]
+        if history:
+            prompt += "\n\nRECENT COMMITS:\n" + "\n".join(f"=== COMMIT ===\n{msg}\n==============" for msg in history)
+            
+    return prompt
 
 
 def strip_signatures(message: str) -> str:
@@ -284,7 +341,10 @@ def commit(
         typer.echo("Thinking...")
     # Priority: provider-specific prompt > universal prompt > default
     base_prompt = provider_cfg.get("prompt") or config_mgr.get_universal_prompt() or DEFAULT_PROMPT
-    prompt = build_prompt_with_context(base_prompt, git_context)
+    prompt_cfg = config_mgr.get_prompt_config()
+    limit = prompt_cfg.get("few_shot", 3)
+    recent_commits = get_recent_commits(limit=limit, start_ref="HEAD")
+    prompt = build_prompt_with_context(base_prompt, git_context, prompt_cfg, recent_commits)
     ai = AIProvider(provider_name, provider_cfg)
     raw_response = ai.execute(diff, prompt)
 
@@ -395,7 +455,10 @@ def amend(
         typer.echo("Thinking...")
     
     base_prompt = provider_cfg.get("prompt") or config_mgr.get_universal_prompt() or DEFAULT_PROMPT
-    prompt = build_prompt_with_context(base_prompt, git_context)
+    prompt_cfg = config_mgr.get_prompt_config()
+    limit = prompt_cfg.get("few_shot", 3)
+    recent_commits = get_recent_commits(limit=limit, start_ref="HEAD~1")
+    prompt = build_prompt_with_context(base_prompt, git_context, prompt_cfg, recent_commits)
     ai = AIProvider(provider_name, provider_cfg)
     raw_response = ai.execute(diff, prompt)
 
