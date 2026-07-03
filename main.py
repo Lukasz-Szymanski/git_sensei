@@ -11,13 +11,25 @@ from typing import Optional
 from config import ConfigManager
 from providers import AIProvider
 from secrets_shield import scan_diff, format_warning
-from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context, get_amend_diff, amend_commit, get_last_commit_message, is_commit_pushed, get_recent_commits
+from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context, get_amend_diff, amend_commit, get_last_commit_message, is_commit_pushed, get_recent_commits, get_staged_diff_filtered
 app = typer.Typer(
     help="Git-Sensei: AI-powered commit message generator. Quick start: git add . && sensei commit",
     add_completion=False,
     rich_markup_mode=None,
 )
 config_mgr = ConfigManager()
+
+def display_truncation_metadata(meta: dict, raw: bool):
+    """Helper to display warnings for skipped or truncated files."""
+    if raw:
+        return
+    skipped = meta.get("skipped", {})
+    if skipped:
+        typer.secho(f"Note: Skipped {len(skipped)} files (lockfiles, binaries, minified, or truncated)", fg=typer.colors.YELLOW)
+        for filepath, reason in skipped.items():
+            typer.secho(f"  - {filepath} ({reason})", fg=typer.colors.YELLOW)
+    if meta.get("truncated"):
+        typer.secho(f"Warning: Diff was truncated using strategy '{meta.get('strategy')}' as it exceeded token budget.", fg=typer.colors.RED)
 
 CONVENTIONAL_REGEX = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9_\-\./+]+\))?: .+$"
 
@@ -305,11 +317,13 @@ def commit(
         typer.echo(f"Using: {provider_name}")
 
     # Get diff
-    diff = get_staged_diff()
+    diff, truncation_meta = get_staged_diff_filtered(config_mgr.config)
     if not diff:
         if not raw:
             typer.secho("No staged changes.", fg=typer.colors.YELLOW)
         sys.exit(0)
+
+    display_truncation_metadata(truncation_meta, raw)
 
     # Secrets check
     secrets_cfg = config_mgr.config.get("secrets", {})
@@ -414,11 +428,19 @@ def amend(
     if not raw:
         typer.echo(f"Using: {provider_name}")
 
-    diff = get_amend_diff()
-    if not diff:
+    raw_diff = get_amend_diff()
+    if not raw_diff:
         if not raw:
             typer.secho("No commits to amend or no changes found.", fg=typer.colors.YELLOW)
         sys.exit(0)
+
+    diff, truncation_meta = get_staged_diff_filtered(config_mgr.config, diff_override=raw_diff)
+    if not diff:
+        if not raw:
+            typer.secho("No commits to amend or no changes found after filtering.", fg=typer.colors.YELLOW)
+        sys.exit(0)
+
+    display_truncation_metadata(truncation_meta, raw)
 
     # Secrets check
     secrets_cfg = config_mgr.config.get("secrets", {})

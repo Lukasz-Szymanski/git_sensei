@@ -1,7 +1,7 @@
-"""Git utilities for sensei."""
 import subprocess
 import re
-from typing import Optional, List
+import fnmatch
+from typing import Optional, List, Tuple
 
 
 def get_current_branch() -> str:
@@ -226,5 +226,192 @@ def get_recent_commits(limit: int = 3, start_ref: str = "HEAD") -> List[str]:
         return commits
     except Exception:
         return []
+
+
+def get_staged_diff_filtered(config: dict, diff_override: Optional[str] = None) -> Tuple[Optional[str], dict]:
+    """
+    Get staged changes diff, filtered and truncated according to config.
+    Returns:
+        Tuple[filtered_diff_str, metadata_dict]
+    """
+    diff = diff_override if diff_override is not None else get_staged_diff()
+    if not diff:
+        return None, {"skipped": {}, "truncated": False, "strategy": None}
+
+    truncation_cfg = config.get("truncation", {})
+    max_tokens = truncation_cfg.get("max_tokens", 4000)
+    strategy = truncation_cfg.get("strategy", "smart")
+    skip_patterns = truncation_cfg.get("skip_patterns", [
+        "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock",
+        "*.min.js", "*.min.css", "*.map", "dist/*", "build/*"
+    ])
+
+    # Helper function to match pattern recursively or by prefix
+    def matches_pattern(filepath: str, pattern: str) -> bool:
+        if fnmatch.fnmatch(filepath, pattern):
+            return True
+        if pattern.endswith("/*"):
+            dir_prefix = pattern[:-2]
+            if filepath.startswith(dir_prefix + "/"):
+                return True
+        if pattern.endswith("/"):
+            if filepath.startswith(pattern):
+                return True
+        return False
+
+    # Split diff into files
+    file_diffs = re.split(r'(?=^diff --git )', diff, flags=re.MULTILINE)
+    file_diffs = [fd for fd in file_diffs if fd.strip()]
+
+    skipped_files = {}
+    included_chunks = []
+    truncated = False
+
+    for fd in file_diffs:
+        # Extract filename
+        first_line = fd.split('\n')[0]
+        match = re.search(r'^diff --git a/(.*?) b/(.*?)$', first_line)
+        filename = ""
+        if match:
+            b_path = match.group(2)
+            filename = match.group(1) if b_path in ("/dev/null", "dev/null") else b_path
+        
+        if not filename:
+            included_chunks.append((fd, len(fd) // 4, ""))
+            continue
+
+        # Check binary
+        if "Binary files " in fd and " differ" in fd:
+            skipped_files[filename] = "binary"
+            continue
+
+        # Check minified
+        if filename.endswith(('.min.js', '.min.css', '.map')):
+            skipped_files[filename] = "minified"
+            continue
+
+        # Check pattern match
+        matched_pattern = None
+        for pat in skip_patterns:
+            if matches_pattern(filename, pat):
+                matched_pattern = pat
+                break
+        
+        if matched_pattern:
+            # Check if it is a lockfile
+            if filename in ("package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock"):
+                lines_count = len(fd.splitlines())
+                skipped_files[filename] = f"lockfile ({lines_count:,} lines)"
+            else:
+                skipped_files[filename] = "skipped"
+            continue
+
+        # Otherwise, keep it
+        tokens = len(fd) // 4
+        included_chunks.append((fd, tokens, filename))
+
+    # Calculate total tokens
+    total_tokens = sum(t[1] for t in included_chunks)
+
+    filtered_diff = ""
+    # Truncation logic if exceeding max_tokens
+    if total_tokens > max_tokens:
+        truncated = True
+        if strategy == "head":
+            # Combine all diffs and keep head lines up to max_tokens
+            combined_diff = "\n".join(t[0] for t in included_chunks)
+            lines = combined_diff.splitlines()
+            current_tokens = 0
+            selected_lines = []
+            for line in lines:
+                line_tokens = len(line) // 4 + 1
+                if current_tokens + line_tokens > max_tokens:
+                    break
+                selected_lines.append(line)
+                current_tokens += line_tokens
+            filtered_diff = "\n".join(selected_lines) + "\n... [TRUNCATED] ..."
+        elif strategy == "tail":
+            combined_diff = "\n".join(t[0] for t in included_chunks)
+            lines = combined_diff.splitlines()
+            current_tokens = 0
+            selected_lines = []
+            for line in reversed(lines):
+                line_tokens = len(line) // 4 + 1
+                if current_tokens + line_tokens > max_tokens:
+                    break
+                selected_lines.insert(0, line)
+                current_tokens += line_tokens
+            filtered_diff = "... [TRUNCATED] ...\n" + "\n".join(selected_lines)
+        elif strategy == "sample":
+            # Keep first half of token budget from start, second half from end
+            combined_diff = "\n".join(t[0] for t in included_chunks)
+            lines = combined_diff.splitlines()
+            half_budget = max_tokens // 2
+            
+            # Head lines
+            head_lines = []
+            current_tokens = 0
+            head_idx = 0
+            for i, line in enumerate(lines):
+                line_tokens = len(line) // 4 + 1
+                if current_tokens + line_tokens > half_budget:
+                    head_idx = i
+                    break
+                head_lines.append(line)
+                current_tokens += line_tokens
+            
+            # Tail lines
+            tail_lines = []
+            current_tokens = 0
+            for line in reversed(lines[head_idx:]):
+                line_tokens = len(line) // 4 + 1
+                if current_tokens + line_tokens > half_budget:
+                    break
+                tail_lines.insert(0, line)
+                current_tokens += line_tokens
+            
+            filtered_diff = "\n".join(head_lines) + "\n... [TRUNCATED] ...\n" + "\n".join(tail_lines)
+        else: # "smart"
+            # Sort files by diff size (ascending) to keep as many complete files as possible
+            included_chunks_sorted = sorted([t for t in included_chunks if t[2]], key=lambda x: x[1])
+            allowed_files = set()
+            current_tokens = 0
+            
+            # Add files without filenames (e.g. general diff chunks if any) first or keep them
+            general_chunks = [t for t in included_chunks if not t[2]]
+            for gc in general_chunks:
+                current_tokens += gc[1]
+                
+            for fd, tokens, filename in included_chunks_sorted:
+                if current_tokens + tokens <= max_tokens:
+                    allowed_files.add(filename)
+                    current_tokens += tokens
+                else:
+                    break
+            
+            # For files that didn't fit, we summarize them
+            diff_parts = []
+            for fd, tokens, filename in included_chunks:
+                if not filename or filename in allowed_files:
+                    diff_parts.append(fd)
+                else:
+                    # Summarize: Keep just the diff header (first few lines up to first @@)
+                    header_lines = []
+                    for line in fd.splitlines():
+                        header_lines.append(line)
+                        if line.startswith("@@"):
+                            break
+                    diff_parts.append("\n".join(header_lines) + "\n... [DIFF TRUNCATED FOR THIS FILE] ...")
+                    skipped_files[filename] = "truncated"
+            filtered_diff = "\n".join(diff_parts)
+    else:
+        filtered_diff = "\n".join(t[0] for t in included_chunks)
+
+    return filtered_diff, {
+        "skipped": skipped_files,
+        "truncated": truncated,
+        "strategy": strategy if truncated else None
+    }
+
 
 

@@ -95,6 +95,21 @@ RULES:
     "secrets": {
         "action": "warn",
         "custom_patterns": {}
+    },
+    "truncation": {
+        "max_tokens": 4000,
+        "strategy": "smart",
+        "skip_patterns": [
+            "package-lock.json",
+            "yarn.lock",
+            "pnpm-lock.yaml",
+            "poetry.lock",
+            "*.min.js",
+            "*.min.css",
+            "*.map",
+            "dist/*",
+            "build/*"
+        ]
     }
 }
 
