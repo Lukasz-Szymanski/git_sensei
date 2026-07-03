@@ -159,7 +159,7 @@ class ConfigManager:
         return providers.get(provider_name, None)
 
     def get_default_provider(self) -> str:
-        return self.config.get("core", {}).get("default_provider", "gemini")
+        return self.config.get("core", {}).get("default_provider", "antigravity")
 
     def list_providers(self) -> Dict[str, str]:
         return {

@@ -6,11 +6,11 @@
 
 > **Smart Context. Universal AI Adapter. Professional Commits.**
 
-A CLI tool that generates professional commit messages using any AI provider (Gemini, Claude Code, OpenAI, Ollama).
+A CLI tool that generates professional commit messages using any AI provider (Antigravity, Claude Code, OpenAI, Ollama).
 
 ## Features
 
-- **Universal Providers** - Switch between Gemini, Claude Code, OpenAI, or local LLMs with one command
+- **Universal Providers** - Switch between Antigravity, Claude Code, OpenAI, or local LLMs with one command
 - **Secrets Shield** - Scans diffs for API keys, tokens, passwords before sending to AI
 - **Smart Context** - Auto-links commits to issue IDs from branch names (Jira, GitHub, GitLab, Linear, Azure DevOps)
 - **Branch Type Detection** - Auto-detects commit type from branch prefix (`feature/` → feat, `fix/` → fix)
@@ -33,7 +33,7 @@ pip install git-sensei-ai
 
 | Provider    | Installation                               |
 | ----------- | ------------------------------------------ |
-| Gemini      | `npm install -g @google/gemini-cli`        |
+| Antigravity | `npm install -g @google/antigravity-cli`  |
 | Claude Code | `npm install -g @anthropic-ai/claude-code` |
 | OpenAI      | `pip install chatgpt-cli`                  |
 | Ollama      | [ollama.ai](https://ollama.ai)             |
@@ -82,7 +82,7 @@ Welcome to Git-Sensei!
 
 Select your AI provider:
 
-  1. Google Gemini (npm i -g @google/gemini-cli)
+  1. Google Antigravity (npm i -g @google/antigravity-cli)
   2. Claude Code (npm i -g @anthropic-ai/claude-code)
   3. OpenAI GPT-4 (pip install chatgpt-cli)
   4. Ollama (https://ollama.ai)

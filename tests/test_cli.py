@@ -124,7 +124,7 @@ class TestInitCommand(unittest.TestCase):
 
         self.assertEqual(result.exit_code, 0)
         self.assertIn("Config saved", result.stdout)
-        mock_config.set_default_provider.assert_called_once_with("gemini")
+        mock_config.set_default_provider.assert_called_once_with("antigravity")
 
     @patch("main.AIProvider")
     @patch("main.config_mgr")

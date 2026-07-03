@@ -15,11 +15,11 @@ class TestConfigManager(unittest.TestCase):
     """Tests for ConfigManager class."""
 
     def test_default_provider(self):
-        """Default provider should be 'gemini' if no config exists."""
+        """Default provider should be 'antigravity' if no config exists."""
         with patch.object(ConfigManager, 'load_config'):
             cm = ConfigManager()
-            cm.config = {"core": {"default_provider": "gemini"}, "providers": {}}
-            self.assertEqual(cm.get_default_provider(), "gemini")
+            cm.config = {"core": {}, "providers": {}}
+            self.assertEqual(cm.get_default_provider(), "antigravity")
 
     def test_default_config_providers(self):
         """Default config should contain key CLI providers like claude, openai, and ollama."""

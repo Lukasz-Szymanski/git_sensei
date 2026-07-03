@@ -832,7 +832,7 @@ def init():
             return
 
     providers = {
-        "1": ("gemini", "Google Gemini", "npm i -g @google/gemini-cli"),
+        "1": ("antigravity", "Google Antigravity", "npm i -g @google/antigravity-cli"),
         "2": ("claude", "Claude Code", "npm i -g @anthropic-ai/claude-code"),
         "3": ("openai", "OpenAI GPT-4", "pip install chatgpt-cli"),
         "4": ("ollama", "Ollama (local)", "https://ollama.ai"),
