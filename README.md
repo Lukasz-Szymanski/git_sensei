@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/Lukasz-Szymanski/git_sensei/actions/workflows/ci.yml/badge.svg)](https://github.com/Lukasz-Szymanski/git_sensei/actions/workflows/ci.yml)
 
+![Git-Sensei Demo](docs/demo.jpg)
+
 > **Smart Context. Universal AI Adapter. Professional Commits.**
 
 A CLI tool that generates professional commit messages using any AI provider (Gemini, Claude Code, OpenAI, Ollama).
