@@ -22,15 +22,7 @@ A CLI tool that generates professional commit messages using any AI provider (Ge
 ## Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/git-sensei.git
-cd git-sensei
-
-# Install dependencies
-pip install typer
-
-# (Optional) Install as global command
-pip install -e .
+pip install git-sensei-ai
 ```
 
 ## Requirements
@@ -53,6 +45,34 @@ sensei init      # First time setup (choose AI provider)
 git add .        # Stage your changes
 sensei commit    # Generate commit with AI
 ```
+
+## Git Hooks & Pre-commit
+
+### 1. Traditional Git Hook
+You can install a native Git hook in your local repository to automatically generate commit messages whenever you run `git commit` (without having to type `sensei commit` manually):
+
+```bash
+sensei install-hook
+```
+
+### 2. Pre-commit Framework Integration
+To enforce Conventional Commits formatting across your team, you can use Git-Sensei as a linter inside the [pre-commit](https://pre-commit.com/) framework.
+
+Add the following to your project's `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/Lukasz-Szymanski/git_sensei
+    rev: v0.14.0  # Use the latest release version tag
+    hooks:
+      - id: git-sensei-lint
+```
+
+Then install the hook with:
+```bash
+pre-commit install --hook-type commit-msg
+```
+This hook will automatically validate all commit messages during the `commit-msg` git stage.
 
 ### First Time Setup
 
