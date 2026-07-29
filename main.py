@@ -1157,7 +1157,7 @@ def create_pr(
     else:
         typer.secho("\nGitHub CLI (gh) not installed. Please copy the text above to create your PR manually.", fg=typer.colors.YELLOW)
 
-
+@app.command(name="stats")
 def stats_cmd(
     reset: bool = typer.Option(False, "--reset", help="Clear usage statistics."),
     json_output: bool = typer.Option(False, "--json", help="Output raw JSON data.")
