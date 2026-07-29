@@ -1,6 +1,8 @@
 import subprocess
+import os
 import re
 import fnmatch
+import shutil
 from typing import Optional, List, Tuple
 
 
@@ -63,6 +65,38 @@ def extract_issue_id(branch_name: str) -> Optional[str]:
                 return format_str.format(*match.groups())
             return match.group(1)
 
+    return None
+
+
+def fetch_issue_context(issue_id: str) -> Optional[str]:
+    """
+    Attempt to fetch issue details from external APIs (like GitHub CLI) based on the issue_id.
+    """
+    if not issue_id:
+        return None
+    
+    # Simple GitHub integration using gh cli
+    # issue_id is usually formatted as "#42" or "GH-42"
+    number = re.sub(r'[^0-9]', '', issue_id)
+    if not number:
+        return None
+
+    if shutil.which("gh"):
+        try:
+            # Fetch title and body using GitHub CLI
+            output = subprocess.check_output(
+                ["gh", "issue", "view", number],
+                stderr=subprocess.DEVNULL,
+                text=True
+            ).strip()
+            
+            # Limit the size to avoid massive prompts
+            if len(output) > 1000:
+                output = output[:1000] + "\n...(truncated)"
+            return output
+        except subprocess.CalledProcessError:
+            pass
+            
     return None
 
 
@@ -160,6 +194,7 @@ def get_git_context(config: Optional[dict] = None) -> dict:
     """
     branch = get_current_branch()
     issue_id = extract_issue_id(branch)
+    issue_context = fetch_issue_context(issue_id) if issue_id else None
     branch_type = extract_branch_type(branch)
     is_pushed = is_branch_pushed(branch)
     commits_ahead = get_commits_ahead_of_main()
@@ -193,6 +228,7 @@ def get_git_context(config: Optional[dict] = None) -> dict:
     return {
         'branch': branch,
         'issue_id': issue_id,
+        'issue_context': issue_context,
         'branch_type': branch_type,
         'scope': scope,
         'is_pushed': is_pushed,
