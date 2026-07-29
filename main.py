@@ -291,6 +291,8 @@ def build_prompt_with_context(base_prompt: str, git_context: dict, prompt_cfg: d
         context_lines.append(f"SUGGESTED TYPE: {git_context['branch_type']}")
     if git_context.get('scope'):
         context_lines.append(f"SUGGESTED SCOPE: {git_context['scope']}")
+    if git_context.get('issue_context'):
+        context_lines.append(f"ISSUE DETAILS (from tracker):\n{git_context['issue_context']}")
     context_str = '\n'.join(context_lines) if context_lines else ''
 
     issue_id = git_context.get('issue_id')
@@ -926,6 +928,234 @@ fi
         typer.secho(f"Failed to install hook: {e}", fg=typer.colors.RED)
         sys.exit(1)
 
+
+@app.command(name="squash")
+def squash(
+    base: str = typer.Option("main", "-b", "--base", help="Base branch to squash against."),
+    provider: str = typer.Option(None, "-p", "--provider", help="AI provider to use."),
+    dry_run: bool = typer.Option(False, "-d", "--dry-run", help="Preview without squashing.")
+):
+    """Smartly rebase and squash messy commits using AI."""
+    if not shutil.which("git"):
+        typer.secho("Git not found!", fg=typer.colors.RED)
+        sys.exit(1)
+
+    # 1. Get commits between base and HEAD
+    try:
+        log_output = subprocess.check_output(
+            ["git", "log", f"{base}..HEAD", "--pretty=format:%h %s", "--name-status"],
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip()
+    except subprocess.CalledProcessError:
+        typer.secho(f"Could not find commits between {base} and HEAD. Does {base} exist?", fg=typer.colors.RED)
+        sys.exit(1)
+
+    if not log_output:
+        typer.secho(f"No commits ahead of {base}.", fg=typer.colors.YELLOW)
+        sys.exit(0)
+
+    # Count commits
+    try:
+        commit_count = int(subprocess.check_output(
+            ["git", "rev-list", "--count", f"{base}..HEAD"], text=True
+        ).strip())
+    except:
+        commit_count = 0
+
+    if commit_count < 2:
+        typer.secho("Need at least 2 commits to squash.", fg=typer.colors.YELLOW)
+        sys.exit(0)
+
+    typer.echo(f"Found {commit_count} commits ahead of {base}.")
+    
+    # 2. Select provider
+    provider_name = provider or config_mgr.get_default_provider()
+    provider_cfg = config_mgr.get_provider_config(provider_name)
+
+    if not provider_cfg:
+        typer.secho(f"Provider '{provider_name}' not found.", fg=typer.colors.RED)
+        sys.exit(1)
+
+    typer.echo("Analyzing commits with AI to generate a rebase plan...")
+
+    # 3. Generate prompt
+    system_prompt = (
+        "You are an expert Git user. I will give you a list of commits with their short hashes, "
+        "subjects, and files changed.\n"
+        "Your task is to generate a git rebase interactive script that logically groups these commits.\n"
+        "Use 'pick' for the first commit of a logical group.\n"
+        "Use 'fixup' for subsequent commits that belong to the same logical group (like typos, wip, or related changes).\n"
+        "Do NOT change the order of the commits unless absolutely necessary.\n"
+        "OUTPUT ONLY the raw rebase script without any markdown blocks or explanations."
+    )
+
+    # Reversing the log because rebase script is chronologically ordered (oldest first)
+    try:
+        chrono_log = subprocess.check_output(
+            ["git", "log", f"{base}..HEAD", "--reverse", "--pretty=format:%h %s", "--name-status"],
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip()
+    except subprocess.CalledProcessError:
+        chrono_log = log_output
+
+    prompt_text = f"{system_prompt}\n\nCommits to rebase:\n{chrono_log}"
+
+    # 4. Call AI provider
+    try:
+        from providers import AIProvider
+        ai = AIProvider(provider_name, provider_cfg)
+        plan = ai.execute(prompt_text, system_prompt=system_prompt)
+    except Exception as e:
+        typer.secho(f"\nAI Error: {str(e)}", fg=typer.colors.RED)
+        sys.exit(1)
+
+    # Clean markdown if provided
+    plan = re.sub(r'```[a-zA-Z]*\n', '', plan)
+    plan = plan.replace('```', '').strip()
+
+    if dry_run:
+        typer.echo("\n--- Generated Rebase Plan (Dry Run) ---")
+        typer.echo(plan)
+        typer.echo("---------------------------------------")
+        sys.exit(0)
+
+    typer.echo("\n--- Generated Rebase Plan ---")
+    typer.echo(plan)
+    typer.echo("-----------------------------")
+
+    if not typer.confirm("Apply this rebase plan?", default=True):
+        typer.secho("Aborted.", fg=typer.colors.YELLOW)
+        sys.exit(0)
+
+    # 5. Apply rebase
+    import tempfile
+    import os
+    with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+        f.write(plan)
+        plan_path = f.name
+
+    typer.echo("Executing git rebase -i...")
+    
+    # We create a script that just copies our plan over the rebase-todo
+    sequence_editor = f"python3 -c \"import shutil, sys; shutil.copy('{plan_path}', sys.argv[1])\""
+    
+    env = os.environ.copy()
+    env["GIT_SEQUENCE_EDITOR"] = sequence_editor
+
+    try:
+        subprocess.run(["git", "rebase", "-i", base], env=env, check=True)
+        typer.secho("Rebase completed successfully!", fg=typer.colors.GREEN)
+    except subprocess.CalledProcessError:
+        typer.secho("Rebase failed. You may need to resolve conflicts manually.", fg=typer.colors.RED)
+        typer.secho("Run 'git rebase --abort' if you want to cancel.", fg=typer.colors.YELLOW)
+    finally:
+        if os.path.exists(plan_path):
+            os.remove(plan_path)
+
+@app.command(name="pr")
+def create_pr(
+    base: str = typer.Option("main", "-b", "--base", help="Base branch for the Pull Request."),
+    provider: str = typer.Option(None, "-p", "--provider", help="AI provider to use."),
+    dry_run: bool = typer.Option(False, "-d", "--dry-run", help="Preview without creating PR.")
+):
+    """Generate a Pull Request description and optionally create it via GitHub CLI."""
+    if not shutil.which("git"):
+        typer.secho("Git not found!", fg=typer.colors.RED)
+        sys.exit(1)
+
+    # 1. Get commits log and diff
+    try:
+        log_output = subprocess.check_output(
+            ["git", "log", f"{base}..HEAD", "--pretty=format:- %s%n%b"],
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip()
+        
+        diff_output = subprocess.check_output(
+            ["git", "diff", f"{base}...HEAD"],
+            stderr=subprocess.DEVNULL,
+            text=True
+        )
+    except subprocess.CalledProcessError:
+        typer.secho(f"Could not analyze changes between {base} and HEAD.", fg=typer.colors.RED)
+        sys.exit(1)
+
+    if not log_output:
+        typer.secho(f"No commits ahead of {base}.", fg=typer.colors.YELLOW)
+        sys.exit(0)
+
+    # 2. Select provider
+    provider_name = provider or config_mgr.get_default_provider()
+    provider_cfg = config_mgr.get_provider_config(provider_name)
+
+    typer.echo(f"Analyzing {len(log_output.splitlines())} lines of history to write PR description...")
+
+    # 3. Generate PR Description
+    system_prompt = (
+        "You are a Senior Developer writing a Pull Request description.\n"
+        "I will provide you with the commit messages and the diff of the changes.\n"
+        "Generate a structured Markdown PR description.\n"
+        "Include these sections:\n"
+        "## Title (first line should just be the title string without ##)\n"
+        "## Motivation and Context\n"
+        "## What changed\n"
+        "## Testing Instructions\n"
+        "Keep it concise, professional, and do not output any surrounding ```markdown blocks."
+    )
+
+    # Truncate diff if it's too large (very simple heuristic to save tokens)
+    if len(diff_output) > 20000:
+        diff_output = diff_output[:20000] + "\n... (diff truncated)"
+
+    prompt_text = f"Commits:\n{log_output}\n\nDiff:\n{diff_output}"
+
+    try:
+        from providers import AIProvider
+        ai = AIProvider(provider_name, provider_cfg)
+        pr_description = ai.execute(prompt_text, system_prompt=system_prompt)
+    except Exception as e:
+        typer.secho(f"\nAI Error: {str(e)}", fg=typer.colors.RED)
+        sys.exit(1)
+        
+    pr_description = re.sub(r'^```[a-zA-Z]*\n', '', pr_description)
+    pr_description = pr_description.replace('```', '').strip()
+
+    # The first line is typically the PR title
+    lines = pr_description.split('\n')
+    pr_title = lines[0].replace('## Title', '').replace('# ', '').strip()
+    if pr_title.startswith(':'):
+        pr_title = pr_title[1:].strip()
+    pr_body = '\n'.join(lines[1:]).strip()
+
+    typer.echo("\n--- Generated Pull Request ---")
+    typer.echo(f"Title: {pr_title}")
+    typer.echo("Body:")
+    typer.echo(pr_body)
+    typer.echo("------------------------------")
+
+    if dry_run:
+        sys.exit(0)
+
+    # 4. Ask to create PR using GitHub CLI
+    if shutil.which("gh"):
+        if typer.confirm("Create Pull Request via GitHub CLI (gh)?", default=True):
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+                f.write(pr_body)
+                body_path = f.name
+            
+            try:
+                subprocess.run(["gh", "pr", "create", "--base", base, "--title", pr_title, "--body-file", body_path], check=True)
+                typer.secho("Pull Request created successfully!", fg=typer.colors.GREEN)
+            except subprocess.CalledProcessError:
+                typer.secho("Failed to create PR via GitHub CLI.", fg=typer.colors.RED)
+            finally:
+                if os.path.exists(body_path):
+                    os.remove(body_path)
+    else:
+        typer.secho("\nGitHub CLI (gh) not installed. Please copy the text above to create your PR manually.", fg=typer.colors.YELLOW)
 
 @app.command(name="stats")
 def stats_cmd(
