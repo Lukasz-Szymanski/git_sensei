@@ -110,6 +110,8 @@ The wizard will:
 | `sensei init`             | Interactive setup wizard (with connection test) |
 | `sensei commit`           | Generate and create a commit           |
 | `sensei amend`            | Rewrite the last commit message using AI |
+| `sensei squash`           | Auto-generate an AI rebase plan to squash commits |
+| `sensei pr`               | Generate PR description and create via GitHub CLI |
 | `sensei commit -p claude` | Use specific provider                  |
 | `sensei commit -d`        | Dry run (preview only)                 |
 | `sensei commit --emoji`   | Generate commit with Gitmoji prefix    |
@@ -123,6 +125,8 @@ The wizard will:
 ```bash
 sensei commit                 # Use default provider (Antigravity CLI)
 sensei amend                  # Rewrite last commit message
+sensei squash                 # Auto-squash commits against the base branch
+sensei pr                     # Generate and create PR via GitHub CLI
 sensei commit -p gemini-api   # Use Native Gemini API (requires GEMINI_API_KEY)
 sensei commit --emoji         # Generate with emojis (e.g. ✨ feat: add login)
 sensei commit -d              # Preview without committing
@@ -332,6 +336,25 @@ $ sensei lint "feat: update `README` file with markdown"
 </details>
 
 
+## Advanced Workflow Tools
+
+Git-Sensei provides advanced tools that leverage AI to automate tedious git tasks:
+
+### Auto-Squashing (`sensei squash`)
+Uses AI to analyze your recent commits and automatically generates an interactive rebase plan (`git rebase -i`), picking the most important commits and squashing/fixupping the rest.
+```bash
+sensei squash --base main
+```
+
+### Pull Request Generation (`sensei pr`)
+Reads the diff and commit history of your branch, generates a professional markdown Pull Request description (including Title, Motivation, What changed, and Testing Instructions), and automatically creates the PR using the GitHub CLI (`gh`).
+```bash
+sensei pr --base main
+```
+
+### Extended Smart Context (GitHub Issues)
+If your branch name contains an issue ID (e.g., `feature/123-login`), Git-Sensei will use the GitHub CLI (`gh issue view 123`) to fetch the actual issue title and description, passing it to the AI as context for even better commit messages!
+
 ## Project Structure
 
 ```
@@ -349,6 +372,12 @@ git_sensei/
 
 <details>
 <summary>Version history</summary>
+
+### v0.15.0 (2026-07-29)
+
+- Added `sensei squash` command to automatically generate interactive rebase plans using AI
+- Added `sensei pr` command to generate Pull Request descriptions and create PRs via GitHub CLI (`gh`)
+- Enhanced Smart Context to automatically fetch issue descriptions via GitHub CLI (`gh issue view`)
 
 ### v0.14.0 (2026-07-03)
 
