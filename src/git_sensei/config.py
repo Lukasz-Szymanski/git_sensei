@@ -1,6 +1,7 @@
 import os
 import sys
 import re
+import copy
 from typing import Dict, Any, Optional
 
 # Try to import tomli (Python 3.11+ has tomllib built-in, otherwise generic tomli)
@@ -120,7 +121,7 @@ RULES:
 
 class ConfigManager:
     def __init__(self):
-        self.config = DEFAULT_CONFIG
+        self.config = copy.deepcopy(DEFAULT_CONFIG)
         self.load_config()
 
     def load_config(self):
