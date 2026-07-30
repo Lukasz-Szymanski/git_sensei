@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import patch
+
 from git_sensei.git_utils import get_staged_diff_filtered
+
 
 class TestSmartTruncation(unittest.TestCase):
     @patch("git_sensei.git_utils.get_staged_diff", return_value=None)

@@ -1,12 +1,14 @@
-import unittest
-import os
 import json
+import os
 import tempfile
-from typer.testing import CliRunner
-from git_sensei.main import app
-from git_sensei.core.stats import get_stats_file_path, record_commit_stat
-
+import unittest
 from unittest.mock import patch
+
+from typer.testing import CliRunner
+
+from git_sensei.core.stats import record_commit_stat
+from git_sensei.main import app
+
 
 class TestCLIDiagnostics(unittest.TestCase):
     def setUp(self):

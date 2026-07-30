@@ -1,5 +1,7 @@
 import unittest
+
 from git_sensei.git_utils import split_staged_diff
+
 
 class TestAtomicCommitSplitter(unittest.TestCase):
     def test_split_staged_diff_heuristic(self):

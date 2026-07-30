@@ -1,14 +1,15 @@
-import unittest
-from unittest.mock import patch, MagicMock
-import sys
 import os
-import tempfile
 import shutil
+import sys
+import tempfile
+import unittest
+from unittest.mock import MagicMock, patch
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from typer.testing import CliRunner
+
 from git_sensei.main import app
 
 runner = CliRunner()
@@ -98,7 +99,7 @@ class TestListProvidersCommand(unittest.TestCase):
 
         # Default provider should be marked
         lines = result.stdout.split('\n')
-        claude_line = [l for l in lines if "claude" in l][0]
+        claude_line = [line for line in lines if "claude" in line][0]
         self.assertTrue(claude_line.startswith("*"))
 
 

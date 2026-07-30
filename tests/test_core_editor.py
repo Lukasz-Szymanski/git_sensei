@@ -1,9 +1,8 @@
 import unittest
-from unittest.mock import patch, mock_open
-import os
-import sys
+from unittest.mock import mock_open, patch
 
-from git_sensei.core.editor import get_editor, edit_in_editor
+from git_sensei.core.editor import edit_in_editor, get_editor
+
 
 class TestCoreEditor(unittest.TestCase):
     @patch("os.environ.get")

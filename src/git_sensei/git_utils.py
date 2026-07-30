@@ -1,9 +1,9 @@
-import subprocess
-import os
-import re
 import fnmatch
+import re
 import shutil
-from typing import Optional, List, Tuple
+import subprocess
+from typing import List, Optional, Tuple
+
 from git_sensei.constants import EMPTY_TREE_SHA
 
 

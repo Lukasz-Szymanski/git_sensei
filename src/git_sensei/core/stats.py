@@ -2,7 +2,6 @@
 import json
 import os
 import re
-from typing import Optional
 
 
 def get_stats_file_path() -> str:

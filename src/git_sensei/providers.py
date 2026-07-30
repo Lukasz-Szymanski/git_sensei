@@ -1,13 +1,13 @@
-import subprocess
-import shlex
-import sys
-import os
 import json
-import urllib.request
-import urllib.error
+import os
+import shlex
 import shutil
+import subprocess
+import sys
+import urllib.error
+import urllib.request
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple
+from typing import Tuple
 
 
 class BaseProvider(ABC):
@@ -21,12 +21,10 @@ class BaseProvider(ABC):
     @abstractmethod
     def execute(self, diff: str, system_prompt: str) -> str:
         """Executes the provider request and returns the output."""
-        pass
 
     @abstractmethod
     def check_health(self) -> bool:
         """Simple ping to check if provider is configured correctly."""
-        pass
 
     def test_connection(self) -> Tuple[bool, str]:
         """Test real connection to AI provider."""
@@ -151,7 +149,7 @@ class GeminiProvider(BaseProvider):
                 return ""
         except urllib.error.URLError as e:
             if isinstance(e.reason, TimeoutError):
-                print(f"\n[API Error] Gemini API request timed out.")
+                print("\n[API Error] Gemini API request timed out.")
             else:
                 print(f"\n[API Error] Failed to connect to Gemini API: {e}")
             return ""
@@ -223,7 +221,7 @@ class OpenAIProvider(BaseProvider):
                 return ""
         except urllib.error.URLError as e:
             if isinstance(e.reason, TimeoutError):
-                print(f"\n[API Error] Custom/OpenAI API request timed out.")
+                print("\n[API Error] Custom/OpenAI API request timed out.")
             else:
                 print(f"\n[API Error] Failed to connect to Custom/OpenAI API: {e}")
             return ""
@@ -254,7 +252,7 @@ class OpenAIProvider(BaseProvider):
 
 def AIProvider(name: str, config: dict) -> BaseProvider:
     """
-    Factory function that returns the appropriate provider strategy 
+    Factory function that returns the appropriate provider strategy
     based on the configuration.
     """
     api_type = config.get("api_type")

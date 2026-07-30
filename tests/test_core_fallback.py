@@ -1,5 +1,11 @@
 import unittest
-from git_sensei.core.fallback import parse_diff, determine_type, generate_fallback_message
+
+from git_sensei.core.fallback import (
+    determine_type,
+    generate_fallback_message,
+    parse_diff,
+)
+
 
 class TestCoreFallback(unittest.TestCase):
     def test_parse_diff(self):
