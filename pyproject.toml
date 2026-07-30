@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "git-sensei-ai"
+version = "0.15.0"
+description = "AI-powered git commit helper with smart truncation, monorepo detection, and secret redaction."
+readme = "README.md"
+authors = [{ name = "Lukasz Szymanski" }]
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+    "typer>=0.9.0",
+    "tomli>=2.0.1; python_version < '3.11'",
+    "rich>=13.0.0"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/Lukasz-Szymanski/git_sensei"
+
+[project.scripts]
+sensei = "git_sensei.main:app"

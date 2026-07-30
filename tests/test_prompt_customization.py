@@ -9,9 +9,9 @@ import subprocess
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import ConfigManager, DEFAULT_CONFIG
-from git_utils import get_recent_commits
-from main import build_prompt_with_context
+from git_sensei.config import ConfigManager, DEFAULT_CONFIG
+from git_sensei.git_utils import get_recent_commits
+from git_sensei.main import build_prompt_with_context
 
 
 class TestPromptCustomization(unittest.TestCase):

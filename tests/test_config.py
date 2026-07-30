@@ -8,7 +8,7 @@ import shutil
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import ConfigManager
+from git_sensei.config import ConfigManager
 
 
 class TestConfigManager(unittest.TestCase):
@@ -23,7 +23,7 @@ class TestConfigManager(unittest.TestCase):
 
     def test_default_config_providers(self):
         """Default config should contain key CLI providers like claude, openai, and ollama."""
-        from config import DEFAULT_CONFIG
+        from git_sensei.config import DEFAULT_CONFIG
         providers = DEFAULT_CONFIG.get("providers", {})
         self.assertIn("claude", providers)
         self.assertIn("openai", providers)

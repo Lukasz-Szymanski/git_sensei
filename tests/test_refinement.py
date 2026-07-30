@@ -1,5 +1,5 @@
 import unittest
-from main import update_commit_message_header
+from git_sensei.main import update_commit_message_header
 
 class TestRefinementAndSelection(unittest.TestCase):
     def test_update_header_no_emoji_no_scope(self):

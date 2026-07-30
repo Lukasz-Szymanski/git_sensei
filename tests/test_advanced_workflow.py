@@ -7,25 +7,25 @@ import subprocess
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from git_utils import fetch_issue_context
-from main import app
+from git_sensei.git_utils import fetch_issue_context
+from git_sensei.main import app
 from typer.testing import CliRunner
 
 runner = CliRunner()
 
 class TestFetchIssueContext(unittest.TestCase):
-    @patch('git_utils.shutil.which')
-    @patch('git_utils.subprocess.check_output')
+    @patch('git_sensei.git_utils.shutil.which')
+    @patch('git_sensei.git_utils.subprocess.check_output')
     def test_fetch_issue_context_success(self, mock_check_output, mock_which):
         mock_which.return_value = "/usr/bin/gh"
         mock_check_output.return_value = "Issue Title\n\nIssue Body"
         
         result = fetch_issue_context("#42")
         
-        self.assertEqual(result, "Issue Title\n\nIssue Body")
+        self.assertEqual(result, "--- START EXTERNAL ISSUE CONTENT ---\nIssue Title\n\nIssue Body\n--- END EXTERNAL ISSUE CONTENT ---")
         mock_check_output.assert_called_with(["gh", "issue", "view", "42"], stderr=subprocess.DEVNULL, text=True)
 
-    @patch('git_utils.shutil.which')
+    @patch('git_sensei.git_utils.shutil.which')
     def test_fetch_issue_context_no_gh(self, mock_which):
         mock_which.return_value = None
         result = fetch_issue_context("#42")
@@ -39,11 +39,11 @@ class TestFetchIssueContext(unittest.TestCase):
 
 class TestAdvancedCLICommands(unittest.TestCase):
     
-    @patch('main.shutil.which')
-    @patch('main.subprocess.check_output')
-    @patch('main.typer.confirm')
-    @patch('providers.AIProvider')
-    @patch('main.subprocess.run')
+    @patch('git_sensei.main.shutil.which')
+    @patch('git_sensei.main.subprocess.check_output')
+    @patch('git_sensei.main.typer.confirm')
+    @patch('git_sensei.providers.AIProvider')
+    @patch('git_sensei.main.subprocess.run')
     def test_squash_command_success(self, mock_run, mock_ai_provider, mock_confirm, mock_check_output, mock_which):
         mock_which.return_value = "/usr/bin/git"
         
@@ -67,11 +67,11 @@ class TestAdvancedCLICommands(unittest.TestCase):
         self.assertIn("Executing git rebase -i", result.stdout)
         mock_run.assert_called()
 
-    @patch('main.shutil.which')
-    @patch('main.subprocess.check_output')
-    @patch('main.typer.confirm')
-    @patch('providers.AIProvider')
-    @patch('main.subprocess.run')
+    @patch('git_sensei.main.shutil.which')
+    @patch('git_sensei.main.subprocess.check_output')
+    @patch('git_sensei.main.typer.confirm')
+    @patch('git_sensei.providers.AIProvider')
+    @patch('git_sensei.main.subprocess.run')
     def test_pr_command_success(self, mock_run, mock_ai_provider, mock_confirm, mock_check_output, mock_which):
         def mock_which_side_effect(cmd):
             return f"/usr/bin/{cmd}"

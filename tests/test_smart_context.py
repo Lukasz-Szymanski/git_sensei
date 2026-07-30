@@ -4,7 +4,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from git_utils import extract_issue_id, extract_branch_type
+from git_sensei.git_utils import extract_issue_id, extract_branch_type
 
 
 class TestExtractBranchType(unittest.TestCase):

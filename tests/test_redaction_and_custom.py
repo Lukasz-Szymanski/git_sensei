@@ -1,8 +1,8 @@
 import unittest
 import os
 from unittest.mock import patch, MagicMock
-from secrets_shield import redact_secrets
-from providers import AIProvider
+from git_sensei.secrets_shield import redact_secrets
+from git_sensei.providers import AIProvider
 
 class TestRedactionAndCustomAPI(unittest.TestCase):
     def test_redact_secrets_simple(self):

@@ -1,8 +1,10 @@
 import unittest
-from git_utils import get_staged_diff_filtered
+from unittest.mock import patch
+from git_sensei.git_utils import get_staged_diff_filtered
 
 class TestSmartTruncation(unittest.TestCase):
-    def test_no_diff(self):
+    @patch("git_sensei.git_utils.get_staged_diff", return_value=None)
+    def test_no_diff(self, mock_get_staged_diff):
         diff, meta = get_staged_diff_filtered({}, diff_override=None)
         self.assertIsNone(diff)
         self.assertEqual(meta["skipped"], {})

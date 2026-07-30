@@ -9,10 +9,10 @@ import typer
 import json
 from typing import Optional
 
-from config import ConfigManager
-from providers import AIProvider
-from secrets_shield import scan_diff, format_warning, redact_secrets
-from git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context, get_amend_diff, amend_commit, get_last_commit_message, is_commit_pushed, get_recent_commits, get_staged_diff_filtered, split_staged_diff
+from git_sensei.config import ConfigManager
+from git_sensei.providers import AIProvider
+from git_sensei.secrets_shield import scan_diff, format_warning, redact_secrets
+from git_sensei.git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context, get_amend_diff, amend_commit, get_last_commit_message, is_commit_pushed, get_recent_commits, get_staged_diff_filtered, split_staged_diff
 app = typer.Typer(
     help="Git-Sensei: AI-powered commit message generator. Quick start: git add . && sensei commit",
     add_completion=False,
@@ -1004,7 +1004,7 @@ def squash(
 
     # 4. Call AI provider
     try:
-        from providers import AIProvider
+        from git_sensei.providers import AIProvider
         ai = AIProvider(provider_name, provider_cfg)
         plan = ai.execute(prompt_text, system_prompt=system_prompt)
     except Exception as e:
@@ -1112,7 +1112,7 @@ def create_pr(
     prompt_text = f"Commits:\n{log_output}\n\nDiff:\n{diff_output}"
 
     try:
-        from providers import AIProvider
+        from git_sensei.providers import AIProvider
         ai = AIProvider(provider_name, provider_cfg)
         pr_description = ai.execute(prompt_text, system_prompt=system_prompt)
     except Exception as e:

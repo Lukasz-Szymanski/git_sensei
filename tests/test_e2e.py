@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from typer.testing import CliRunner
-from main import app
+from git_sensei.main import app
 
 runner = CliRunner()
 
@@ -32,7 +32,7 @@ class TestEndToEnd(unittest.TestCase):
         os.chdir(self.original_cwd)
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
-    @patch("main.AIProvider")
+    @patch("git_sensei.main.AIProvider")
     def test_full_commit_flow(self, mock_provider_class):
         """Test full commit flow from staging to git commit using mocked AI."""
         # Setup mock AI
@@ -57,7 +57,7 @@ class TestEndToEnd(unittest.TestCase):
         log_result = subprocess.run(["git", "log", "-1", "--pretty=%B"], capture_output=True, text=True)
         self.assertIn("feat: add user authentication", log_result.stdout)
 
-    @patch("main.AIProvider")
+    @patch("git_sensei.main.AIProvider")
     def test_commit_abort(self, mock_provider_class):
         """Test user aborting the commit message."""
         mock_provider = mock_provider_class.return_value
@@ -77,7 +77,7 @@ class TestEndToEnd(unittest.TestCase):
         log_result = subprocess.run(["git", "log"], capture_output=True, text=True)
         self.assertNotEqual(log_result.returncode, 0) # git log fails if there are no commits
 
-    @patch("main.AIProvider")
+    @patch("git_sensei.main.AIProvider")
     def test_full_amend_flow(self, mock_provider_class):
         """Test full amend flow rewriting last commit using mocked AI."""
         # Setup mock AI
