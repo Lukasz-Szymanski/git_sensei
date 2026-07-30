@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "git-sensei-ai"
-version = "0.15.0"
+version = "0.15.1"
 description = "AI-powered git commit helper with smart truncation, monorepo detection, and secret redaction."
 readme = "README.md"
 authors = [{ name = "Lukasz Szymanski" }]
