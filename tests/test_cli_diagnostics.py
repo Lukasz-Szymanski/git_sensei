@@ -3,7 +3,8 @@ import os
 import json
 import tempfile
 from typer.testing import CliRunner
-from git_sensei.main import app, get_stats_file_path, record_commit_stat
+from git_sensei.main import app
+from git_sensei.core.stats import get_stats_file_path, record_commit_stat
 
 from unittest.mock import patch
 
@@ -12,7 +13,7 @@ class TestCLIDiagnostics(unittest.TestCase):
         self.runner = CliRunner()
         self.temp_dir = tempfile.TemporaryDirectory()
         self.stats_path = os.path.join(self.temp_dir.name, "stats.json")
-        self.patcher = patch("git_sensei.main.get_stats_file_path", return_value=self.stats_path)
+        self.patcher = patch("git_sensei.core.stats.get_stats_file_path", return_value=self.stats_path)
         self.patcher.start()
 
     def tearDown(self):
