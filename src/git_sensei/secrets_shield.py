@@ -212,8 +212,8 @@ def redact_secrets(diff: str, custom_patterns: dict = None) -> str:
                         whole_match = match_obj.group(0)
                         if whole_match and whole_match != "[REDACTED]":
                             redacted_content = redacted_content.replace(whole_match, "[REDACTED]")
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Warning: Failed to process secret regex pattern '{pattern_name}': {e}")
 
         # 2. Redact high-entropy values
         high_entropy = check_high_entropy(redacted_content)

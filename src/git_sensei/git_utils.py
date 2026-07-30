@@ -163,7 +163,8 @@ def get_staged_files() -> List[str]:
             capture_output=True, text=True, encoding='utf-8', check=True
         )
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    except Exception:
+    except Exception as e:
+        print(f"Warning: Failed to get staged files: {e}")
         return []
 
 
@@ -182,7 +183,8 @@ def get_amend_files() -> List[str]:
             capture_output=True, text=True, encoding='utf-8', check=True
         )
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    except Exception:
+    except Exception as e:
+        print(f"Warning: Failed to get amend files: {e}")
         return []
 
 
@@ -311,7 +313,8 @@ def get_recent_commits(limit: int = 3, start_ref: str = "HEAD") -> List[str]:
             if stripped:
                 commits.append(stripped)
         return commits
-    except Exception:
+    except Exception as e:
+        print(f"Warning: Failed to get commits for squash: {e}")
         return []
 
 
