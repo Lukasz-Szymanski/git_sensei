@@ -90,10 +90,16 @@ def fetch_issue_context(issue_id: str) -> Optional[str]:
                 text=True
             ).strip()
             
-            # Limit the size to avoid massive prompts
-            if len(output) > 1000:
-                output = output[:1000] + "\n...(truncated)"
-            return output
+            # Sanitize to prevent prompt injection
+            # 1. Remove HTML/Markdown comments that might hide malicious instructions
+            output = re.sub(r'<!--.*?-->', '', output, flags=re.DOTALL)
+            # 2. Prevent boundary escaping
+            output = output.replace("---", "-").replace("```", " ")
+            # 3. Limit length to avoid massive prompts or complex injections
+            if len(output) > 500:
+                output = output[:500] + "...\n(truncated)"
+            
+            return f"--- START EXTERNAL ISSUE CONTENT ---\n{output.strip()}\n--- END EXTERNAL ISSUE CONTENT ---"
         except subprocess.CalledProcessError:
             pass
             

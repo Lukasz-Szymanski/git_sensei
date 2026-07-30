@@ -30,32 +30,29 @@ class AIProvider:
         if not self.command_template:
             raise ValueError(f"Provider '{self.name}' has no command or api_type defined.")
 
-        # 1. Prepare Command
-        escaped_prompt = system_prompt.replace('"', '\\"')
-        final_cmd_str = self.command_template.replace("{system}", escaped_prompt)
+        # 1. Prepare Command Safely
+        try:
+            args = shlex.split(self.command_template)
+            args = [arg.replace("{system}", system_prompt) for arg in args]
+        except ValueError as e:
+            print(f"\n[Error] Invalid command template in config: {e}")
+            return ""
+            
+        # Resolve executable path to avoid shell=True requirement on Windows for .cmd files
+        executable = shutil.which(args[0])
+        if executable:
+            args[0] = executable
         
         # 2. Execute
         try:
-            if sys.platform == "win32":
-                process = subprocess.Popen(
-                    final_cmd_str,
-                    shell=True,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    encoding='utf-8'
-                )
-            else:
-                args = shlex.split(final_cmd_str)
-                process = subprocess.Popen(
-                    args,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    encoding='utf-8'
-                )
+            process = subprocess.Popen(
+                args,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding='utf-8'
+            )
             
             stdout, stderr = process.communicate(input=diff)
 

@@ -127,9 +127,9 @@ class ConfigManager:
         """Loads config from multiple sources. Later entries override earlier ones."""
         # Order: defaults -> package -> project -> user (highest priority)
         paths = [
-            os.path.join(os.path.dirname(__file__), ".sensei.toml"),  # Package defaults
-            os.path.join(os.getcwd(), ".sensei.toml"),                 # Project-level
-            os.path.expanduser("~/.sensei.toml"),                      # User config (highest priority)
+            (os.path.join(os.path.dirname(__file__), ".sensei.toml"), "package"),
+            (os.path.join(os.getcwd(), ".sensei.toml"), "project"),
+            (os.path.expanduser("~/.sensei.toml"), "user"),
         ]
 
         if not toml:
@@ -137,11 +137,17 @@ class ConfigManager:
             # We don't warn here to avoid spamming stdout, but we stick to defaults
             return
 
-        for path in paths:
+        for path, level in paths:
             if os.path.exists(path):
                 try:
                     with open(path, "rb") as f:
                         data = toml.load(f)
+                        
+                        # Security: Prevent project-level config from hijacking provider endpoints or commands
+                        if level == "project" and "providers" in data:
+                            print(f"\n[Security Warning] Ignoring 'providers' section in project-level {path} to prevent potential API key exfiltration.")
+                            del data["providers"]
+                            
                         self._merge_config(data)
                 except Exception as e:
                     print(f"Warning: Failed to parse {path}: {e}")
