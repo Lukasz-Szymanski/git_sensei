@@ -26,3 +26,15 @@ Homepage = "https://github.com/Lukasz-Szymanski/git_sensei"
 
 [project.scripts]
 sensei = "git_sensei.main:app"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501", "E722"]
+
+[tool.mypy]
+ignore_missing_imports = true
+disable_error_code = ["import-untyped", "assignment", "union-attr", "no-redef", "attr-defined", "var-annotated"]
+

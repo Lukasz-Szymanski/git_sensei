@@ -1,15 +1,16 @@
-import unittest
-from unittest.mock import patch
 import os
-import tempfile
 import shutil
 import subprocess
 import sys
+import tempfile
+import unittest
+from unittest.mock import patch
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from typer.testing import CliRunner
+
 from git_sensei.main import app
 
 runner = CliRunner()

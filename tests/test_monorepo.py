@@ -1,5 +1,7 @@
 import unittest
+
 from git_sensei.git_utils import detect_monorepo_scope
+
 
 class TestMonorepoScope(unittest.TestCase):
     def test_disabled(self):

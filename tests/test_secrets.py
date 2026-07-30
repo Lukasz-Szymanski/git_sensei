@@ -1,10 +1,10 @@
-import unittest
-import sys
 import os
+import sys
+import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from git_sensei.secrets_shield import scan_diff, calculate_entropy, check_high_entropy, SecretMatch
+from git_sensei.secrets_shield import calculate_entropy, check_high_entropy, scan_diff
 
 
 class TestSecretsDetection(unittest.TestCase):

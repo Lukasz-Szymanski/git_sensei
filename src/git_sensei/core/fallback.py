@@ -3,7 +3,6 @@ import os
 import re
 from typing import List, Tuple
 
-
 # File extension to commit type mapping
 _DOC_EXTENSIONS = {'.md', '.txt', '.rst'}
 _STYLE_EXTENSIONS = {'.css', '.scss', '.less', '.styl'}

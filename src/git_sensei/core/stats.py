@@ -2,7 +2,6 @@
 import json
 import os
 import re
-from typing import Optional
 
 
 def get_stats_file_path() -> str:
@@ -29,8 +28,8 @@ def record_commit_stat(provider: str, decision: str, commit_type: str, message_l
         try:
             with open(path, "r", encoding="utf-8") as f:
                 stats = json.load(f)
-        except Exception:
-            pass
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"Warning: Failed to read stats: {e}")
             
     stats["generated_attempts"] = stats.get("generated_attempts", 0) + 1
     
@@ -51,8 +50,8 @@ def record_commit_stat(provider: str, decision: str, commit_type: str, message_l
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(stats, f, indent=2)
-    except Exception:
-        pass
+    except OSError as e:
+        print(f"Warning: Failed to write stats: {e}")
 
 
 def load_stats() -> dict:
@@ -63,7 +62,8 @@ def load_stats() -> dict:
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"Warning: Failed to load stats: {e}")
         return {}
 
 
@@ -74,6 +74,7 @@ def clear_stats() -> bool:
         try:
             os.remove(path)
             return True
-        except Exception:
+        except OSError as e:
+            print(f"Warning: Failed to clear stats: {e}")
             return False
     return True

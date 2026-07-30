@@ -1,8 +1,7 @@
-import os
-import sys
-import re
 import copy
-from typing import Dict, Any, Optional
+import os
+import re
+from typing import Any, Dict, Optional
 
 # Try to import tomli (Python 3.11+ has tomllib built-in, otherwise generic tomli)
 try:
@@ -153,13 +152,16 @@ class ConfigManager:
                 except Exception as e:
                     print(f"Warning: Failed to parse {path}: {e}")
 
-    def _merge_config(self, new_data: Dict[str, Any]):
-        """Deep merge for simple dicts"""
-        for section, content in new_data.items():
-            if section not in self.config:
-                self.config[section] = content
-            elif isinstance(content, dict):
-                self.config[section].update(content)
+    def _merge_config(self, new_data: Dict[str, Any], base: Optional[Dict[str, Any]] = None):
+        """Recursive deep merge of dictionaries."""
+        if base is None:
+            base = self.config
+            
+        for key, value in new_data.items():
+            if isinstance(value, dict) and isinstance(base.get(key), dict):
+                self._merge_config(value, base[key])
+            else:
+                base[key] = copy.deepcopy(value)
 
     def get_provider_config(self, provider_name: str) -> Dict[str, str]:
         providers = self.config.get("providers", {})

@@ -1,15 +1,15 @@
-import unittest
-from unittest.mock import patch, MagicMock
-import sys
 import os
-import shutil
 import subprocess
+import sys
+import unittest
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from typer.testing import CliRunner
+
 from git_sensei.git_utils import fetch_issue_context
 from git_sensei.main import app
-from typer.testing import CliRunner
 
 runner = CliRunner()
 

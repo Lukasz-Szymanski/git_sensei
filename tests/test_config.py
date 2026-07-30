@@ -1,9 +1,9 @@
-import unittest
-from unittest.mock import patch, mock_open
-import sys
 import os
-import tempfile
 import shutil
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
