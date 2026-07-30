@@ -379,11 +379,15 @@ git_sensei/
 <details>
 <summary>Version history</summary>
 
-### v0.16.0 (2026-07-30)
+### v0.15.1 (2026-07-30)
 
 - **Architecture Refactoring**: Reduced technical debt by breaking down `main.py` into smaller, atomic modules (`core.stats`, `core.editor`, `core.fallback`, `constants`).
+- Implemented **Strategy Pattern** for AI Providers to replace legacy monolithic structures.
+- Added explicit network and subprocess timeouts (15-45s) to prevent the CLI from hanging.
+- Added strict Exception handling and logging mechanisms across file-system and Regex operations.
 - Fixed configuration state bug where `ConfigManager` unintentionally mutated default constants globally.
 - Cleaned up duplicated inline code into shared imports.
+- Re-architected project to enforce 100% compliance with strict CI tools (Ruff & MyPy).
 
 ### v0.15.0 (2026-07-29)
 
