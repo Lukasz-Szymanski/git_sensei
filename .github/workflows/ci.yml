@@ -23,12 +23,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install . pytest pytest-cov
+        run: make install
 
       - name: Run tests with coverage
-        run: python -m pytest tests/ -v --cov=. --cov-fail-under=65
+        run: make test
 
   lint:
     runs-on: ubuntu-latest
@@ -41,5 +39,4 @@ jobs:
           python-version: '3.11'
 
       - name: Check syntax
-        run: |
-          python -m py_compile src/git_sensei/*.py
+        run: make lint
