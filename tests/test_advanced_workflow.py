@@ -42,7 +42,7 @@ class TestAdvancedCLICommands(unittest.TestCase):
     @patch('git_sensei.main.shutil.which')
     @patch('git_sensei.main.subprocess.check_output')
     @patch('git_sensei.main.typer.confirm')
-    @patch('git_sensei.providers.AIProvider')
+    @patch('git_sensei.main.AIProvider')
     @patch('git_sensei.main.subprocess.run')
     def test_squash_command_success(self, mock_run, mock_ai_provider, mock_confirm, mock_check_output, mock_which):
         mock_which.return_value = "/usr/bin/git"
@@ -70,7 +70,7 @@ class TestAdvancedCLICommands(unittest.TestCase):
     @patch('git_sensei.main.shutil.which')
     @patch('git_sensei.main.subprocess.check_output')
     @patch('git_sensei.main.typer.confirm')
-    @patch('git_sensei.providers.AIProvider')
+    @patch('git_sensei.main.AIProvider')
     @patch('git_sensei.main.subprocess.run')
     def test_pr_command_success(self, mock_run, mock_ai_provider, mock_confirm, mock_check_output, mock_which):
         def mock_which_side_effect(cmd):

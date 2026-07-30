@@ -4,6 +4,7 @@ import re
 import fnmatch
 import shutil
 from typing import Optional, List, Tuple
+from git_sensei.constants import EMPTY_TREE_SHA
 
 
 def get_current_branch() -> str:
@@ -173,7 +174,7 @@ def get_amend_files() -> List[str]:
         subprocess.check_call(["git", "rev-parse", "HEAD~1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         diff_cmd = ["git", "diff", "HEAD~1", "--staged", "--name-only"]
     except subprocess.CalledProcessError:
-        diff_cmd = ["git", "diff", "4b825dc642cb6eb9a060e54bf8d69288fbee4904", "--staged", "--name-only"]
+        diff_cmd = ["git", "diff", EMPTY_TREE_SHA, "--staged", "--name-only"]
         
     try:
         result = subprocess.run(
@@ -250,7 +251,7 @@ def get_amend_diff() -> Optional[str]:
         diff_cmd = ["git", "diff", "HEAD~1", "--staged"]
     except subprocess.CalledProcessError:
         # Initial commit fallback (diff against empty tree)
-        diff_cmd = ["git", "diff", "4b825dc642cb6eb9a060e54bf8d69288fbee4904", "--staged"]
+        diff_cmd = ["git", "diff", EMPTY_TREE_SHA, "--staged"]
         
     result = subprocess.run(
         diff_cmd,

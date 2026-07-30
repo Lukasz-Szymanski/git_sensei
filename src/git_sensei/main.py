@@ -10,9 +10,22 @@ import json
 from typing import Optional
 
 from git_sensei.config import ConfigManager
+from git_sensei.constants import (
+    GITMOJI_MAP, COMMIT_TYPES, CONVENTIONAL_REGEX, CONVENTIONAL_PATTERN,
+    DEFAULT_PROMPT, REVIEW_CHOICES, PR_MAX_DIFF_LENGTH,
+)
+from git_sensei.core.stats import get_stats_file_path, parse_commit_type, record_commit_stat, load_stats, clear_stats
+from git_sensei.core.editor import get_editor, edit_in_editor
+from git_sensei.core.fallback import generate_fallback_message
 from git_sensei.providers import AIProvider
 from git_sensei.secrets_shield import scan_diff, format_warning, redact_secrets
-from git_sensei.git_utils import get_staged_diff, get_current_branch, extract_issue_id, create_commit, get_git_context, get_amend_diff, amend_commit, get_last_commit_message, is_commit_pushed, get_recent_commits, get_staged_diff_filtered, split_staged_diff
+from git_sensei.git_utils import (
+    get_staged_diff, get_current_branch, extract_issue_id, create_commit,
+    get_git_context, get_amend_diff, amend_commit, get_last_commit_message,
+    is_commit_pushed, get_recent_commits, get_staged_diff_filtered,
+    split_staged_diff, get_staged_files,
+)
+
 app = typer.Typer(
     help="Git-Sensei: AI-powered commit message generator. Quick start: git add . && sensei commit",
     add_completion=False,
@@ -31,55 +44,6 @@ def display_truncation_metadata(meta: dict, raw: bool):
             typer.secho(f"  - {filepath} ({reason})", fg=typer.colors.YELLOW)
     if meta.get("truncated"):
         typer.secho(f"Warning: Diff was truncated using strategy '{meta.get('strategy')}' as it exceeded token budget.", fg=typer.colors.RED)
-
-
-def get_stats_file_path() -> str:
-    return os.path.expanduser("~/.sensei/stats.json")
-
-
-def parse_commit_type(message: str) -> str:
-    """Parse commit type from message."""
-    cleaned = re.sub(r'^(?:\:\w+\:|[\U00010000-\U0010ffff]\s*)\s*', '', message.strip())
-    match = re.match(r'^([a-zA-Z0-9_-]+)', cleaned)
-    if match:
-        return match.group(1).lower()
-    return "unknown"
-
-
-def record_commit_stat(provider: str, decision: str, commit_type: str, message_len: int):
-    """Record a commit attempt, type, provider and accept/reject decision."""
-    path = get_stats_file_path()
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    
-    stats = {}
-    if os.path.exists(path):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                stats = json.load(f)
-        except Exception:
-            pass
-            
-    stats["generated_attempts"] = stats.get("generated_attempts", 0) + 1
-    
-    decisions = stats.setdefault("decisions", {"accepted": 0, "rejected": 0})
-    decisions[decision] = decisions.get(decision, 0) + 1
-    
-    providers = stats.setdefault("providers", {})
-    providers[provider] = providers.get(provider, 0) + 1
-    
-    types = stats.setdefault("types", {})
-    types[commit_type] = types.get(commit_type, 0) + 1
-    
-    # Calculate rolling average message length
-    total_len_sum = stats.get("total_message_length_sum", 0) + message_len
-    stats["total_message_length_sum"] = total_len_sum
-    stats["average_message_length"] = round(total_len_sum / stats["generated_attempts"])
-    
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(stats, f, indent=2)
-    except Exception:
-        pass
 
 
 def generate_and_review_commit_for_diff(
@@ -135,7 +99,7 @@ def generate_and_review_commit_for_diff(
         if dry_run:
             return True
 
-        choice = typer.prompt("[y]es, [n]o, [e]dit, [r]etry, re[f]ine, [s]elect", default="y").lower()
+        choice = typer.prompt(REVIEW_CHOICES, default="y").lower()
 
         if choice in ('y', 'yes'):
             if create_commit(message):
@@ -170,11 +134,8 @@ def generate_and_review_commit_for_diff(
                 if use_emoji:
                     message = apply_gitmoji(message)
         elif choice in ('s', 'select'):
-            types = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert"]
-            gitmojis = {
-                "feat": "✨", "fix": "🐛", "docs": "📝", "style": "🎨", "refactor": "♻️",
-                "perf": "⚡️", "test": "🧪", "build": "📦", "ci": "💚", "chore": "🔧", "revert": "⏪"
-            }
+            types = COMMIT_TYPES
+            gitmojis = GITMOJI_MAP
             typer.echo("Select commit type:")
             for i, t in enumerate(types, 1):
                 typer.echo(f"  {i}. {t} {gitmojis.get(t, '')}")
@@ -195,35 +156,7 @@ def generate_and_review_commit_for_diff(
             record_commit_stat(provider_name, "rejected", parse_commit_type(message), len(message))
             return False
 
-CONVENTIONAL_REGEX = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9_\-\./+]+\))?: .+$"
-
-DEFAULT_PROMPT = """You are a professional git commit message generator.
-
-TASK: Analyze the git diff and generate a complete, professional commit message.
-
-OUTPUT FORMAT (output ONLY the commit message, nothing else):
-
-type(scope): concise summary (max 72 chars)
-
-Brief paragraph explaining WHAT changed and WHY (2-3 sentences).
-
-- Bullet point for specific change 1
-- Bullet point for specific change 2
-- Bullet point for specific change 3
-
-{issue_footer}
-
-RULES:
-- Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
-- Use imperative mood: "add", "fix", "update" (not "added", "fixed")
-- First line max 72 characters
-- Be specific about what changed and why
-- Group related changes in bullet points
-- NO markdown formatting, NO preamble like "Here's the commit message:"
-- Start DIRECTLY with the type (feat/fix/etc)
-- NO signatures like "Generated with..." or "Co-Authored-By"
-
-{context}"""
+# CONVENTIONAL_REGEX, DEFAULT_PROMPT - now imported from constants
 
 
 def update_commit_message_header(message: str, new_type: str, include_emoji: bool) -> str:
@@ -238,19 +171,7 @@ def update_commit_message_header(message: str, new_type: str, include_emoji: boo
     pattern = r"^(?P<emoji>(?::\w+:|[\U00010000-\U0010ffff]\s*))?\s*(?P<type>[a-zA-Z0-9_-]+)(?P<scope>\([^)]+\))?(?P<breaking>!)?\s*:\s*(?P<subject>.*)$"
     match = re.match(pattern, first_line)
     
-    gitmojis = {
-        "feat": "✨",
-        "fix": "🐛",
-        "docs": "📝",
-        "style": "🎨",
-        "refactor": "♻️",
-        "perf": "⚡️",
-        "test": "🧪",
-        "build": "📦",
-        "ci": "💚",
-        "chore": "🔧",
-        "revert": "⏪"
-    }
+    gitmojis = GITMOJI_MAP
     
     emoji_prefix = (gitmojis.get(new_type, "") + " ") if (include_emoji and new_type in gitmojis) else ""
     
@@ -375,20 +296,6 @@ def clean_response(raw_output: str) -> str:
     return strip_signatures(message)
 
 
-GITMOJI_MAP = {
-    "feat": "✨",
-    "fix": "🐛",
-    "docs": "📝",
-    "style": "🎨",
-    "refactor": "♻️",
-    "perf": "⚡",
-    "test": "✅",
-    "build": "🏗️",
-    "ci": "💚",
-    "chore": "🔧",
-    "revert": "⏪"
-}
-
 def apply_gitmoji(message: str) -> str:
     """Insert Gitmoji prefix to conventional commit message."""
     match = re.match(r"^([a-z0-9_\-]+)(\([a-z0-9_\-\./+]+\))?:", message, re.IGNORECASE)
@@ -402,103 +309,7 @@ def apply_gitmoji(message: str) -> str:
 
 def call_local_fallback(diff: str) -> str:
     """Fallback to local heuristic engine."""
-    local_bridge = os.path.join(os.path.dirname(__file__), "local_bridge.py")
-    if os.path.exists(local_bridge):
-        proc = subprocess.Popen(
-            [sys.executable, local_bridge],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            text=True, encoding='utf-8'
-        )
-        stdout, _ = proc.communicate(input=diff)
-        return stdout.strip()
-    return "chore: update files"
-
-
-def get_editor() -> Optional[str]:
-    """Get editor command using fallback chain.
-
-    Priority: $VISUAL -> $EDITOR -> git config core.editor -> platform default
-    """
-    # Check environment variables
-    editor = os.environ.get('VISUAL') or os.environ.get('EDITOR')
-    if editor:
-        return editor
-
-    # Check git config
-    try:
-        result = subprocess.run(
-            ['git', 'config', 'core.editor'],
-            capture_output=True, text=True, encoding='utf-8'
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-    except Exception:
-        pass
-
-    # Platform defaults
-    if sys.platform == 'win32':
-        return 'notepad'
-    else:
-        return 'nano'
-
-
-def edit_in_editor(message: str) -> Optional[str]:
-    """Open message in external editor for editing.
-
-    Returns edited message or None if editing failed/was cancelled.
-    """
-    editor = get_editor()
-    if not editor:
-        return None
-
-    # Create temporary file with commit message
-    with tempfile.NamedTemporaryFile(
-        mode='w',
-        suffix='.txt',
-        prefix='sensei_commit_',
-        delete=False,
-        encoding='utf-8'
-    ) as f:
-        f.write(message)
-        f.write('\n\n# Edit your commit message above.')
-        f.write('\n# Lines starting with # will be ignored.')
-        temp_path = f.name
-
-    try:
-        # Build editor command
-        if sys.platform == 'win32':
-            # Windows: use shell=True for complex commands
-            cmd = f'{editor} "{temp_path}"'
-            subprocess.run(cmd, shell=True, check=True)
-        else:
-            # POSIX: split command properly
-            import shlex
-            cmd_parts = shlex.split(editor)
-            cmd_parts.append(temp_path)
-            subprocess.run(cmd_parts, check=True)
-
-        # Read edited content
-        with open(temp_path, 'r', encoding='utf-8') as f:
-            edited = f.read()
-
-        # Remove comment lines and strip
-        lines = [line for line in edited.splitlines() if not line.startswith('#')]
-        result = '\n'.join(lines).strip()
-
-        return result if result else None
-
-    except subprocess.CalledProcessError:
-        typer.secho("Editor closed without saving.", fg=typer.colors.YELLOW)
-        return None
-    except Exception as e:
-        typer.secho(f"Editor error: {e}", fg=typer.colors.RED)
-        return None
-    finally:
-        # Cleanup temp file
-        try:
-            os.unlink(temp_path)
-        except Exception:
-            pass
+    return generate_fallback_message(diff)
 
 
 @app.command()
@@ -719,7 +530,7 @@ def amend(
         if dry_run:
             break
 
-        choice = typer.prompt("[y]es, [n]o, [e]dit, [r]etry, re[f]ine, [s]elect", default="y").lower()
+        choice = typer.prompt(REVIEW_CHOICES, default="y").lower()
 
         if choice in ('y', 'yes'):
             if amend_commit(message):
@@ -753,11 +564,8 @@ def amend(
                 if use_emoji:
                     message = apply_gitmoji(message)
         elif choice in ('s', 'select'):
-            types = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert"]
-            gitmojis = {
-                "feat": "✨", "fix": "🐛", "docs": "📝", "style": "🎨", "refactor": "♻️",
-                "perf": "⚡️", "test": "🧪", "build": "📦", "ci": "💚", "chore": "🔧", "revert": "⏪"
-            }
+            types = COMMIT_TYPES
+            gitmojis = GITMOJI_MAP
             typer.echo("Select commit type:")
             for i, t in enumerate(types, 1):
                 typer.echo(f"  {i}. {t} {gitmojis.get(t, '')}")
@@ -1004,7 +812,6 @@ def squash(
 
     # 4. Call AI provider
     try:
-        from git_sensei.providers import AIProvider
         ai = AIProvider(provider_name, provider_cfg)
         plan = ai.execute(prompt_text, system_prompt=system_prompt)
     except Exception as e:
@@ -1030,8 +837,7 @@ def squash(
         sys.exit(0)
 
     # 5. Apply rebase
-    import tempfile
-    import os
+
     with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
         f.write(plan)
         plan_path = f.name
@@ -1106,13 +912,12 @@ def create_pr(
     )
 
     # Truncate diff if it's too large (very simple heuristic to save tokens)
-    if len(diff_output) > 20000:
-        diff_output = diff_output[:20000] + "\n... (diff truncated)"
+    if len(diff_output) > PR_MAX_DIFF_LENGTH:
+        diff_output = diff_output[:PR_MAX_DIFF_LENGTH] + "\n... (diff truncated)"
 
     prompt_text = f"Commits:\n{log_output}\n\nDiff:\n{diff_output}"
 
     try:
-        from git_sensei.providers import AIProvider
         ai = AIProvider(provider_name, provider_cfg)
         pr_description = ai.execute(prompt_text, system_prompt=system_prompt)
     except Exception as e:
@@ -1163,31 +968,19 @@ def stats_cmd(
     json_output: bool = typer.Option(False, "--json", help="Output raw JSON data.")
 ):
     """Display usage statistics."""
-    path = get_stats_file_path()
-    
     if reset:
-        if os.path.exists(path):
-            try:
-                os.remove(path)
-                typer.secho("Statistics cleared.", fg=typer.colors.GREEN)
-            except Exception as e:
-                typer.secho(f"Failed to clear statistics: {e}", fg=typer.colors.RED)
+        if clear_stats():
+            typer.secho("Statistics cleared.", fg=typer.colors.GREEN)
         else:
-            typer.echo("No statistics to clear.")
+            typer.secho("Failed to clear statistics.", fg=typer.colors.RED)
         return
 
-    if not os.path.exists(path):
+    stats = load_stats()
+    if not stats:
         if json_output:
             print(json.dumps({}))
         else:
             typer.echo("No statistics recorded yet. Generate some commit messages first!")
-        return
-
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            stats = json.load(f)
-    except Exception as e:
-        typer.secho(f"Failed to read statistics: {e}", fg=typer.colors.RED)
         return
 
     if json_output:

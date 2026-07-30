@@ -359,19 +359,31 @@ If your branch name contains an issue ID (e.g., `feature/123-login`), Git-Sensei
 
 ```
 git_sensei/
-├── main.py           # CLI entrypoint
-├── config.py         # Configuration loader
-├── providers.py      # AI provider adapter
-├── local_bridge.py   # Offline fallback engine
-├── .sensei.toml      # Default configuration
-├── tests/            # Unit tests
-└── docs/             # Documentation
+├── main.py             # CLI entrypoint
+├── config.py           # Configuration loader
+├── constants.py        # Shared configuration and mappings
+├── providers.py        # AI provider adapters
+├── secrets_shield.py   # Security regex scanning
+├── git_utils.py        # Git subprocess interactions
+├── core/               # Core business logic
+│   ├── editor.py       # External IDE editor integrations
+│   ├── fallback.py     # Offline heuristic commit generator
+│   └── stats.py        # Usage telemetry tracking
+├── .sensei.toml        # Default configuration
+├── tests/              # Unit tests
+└── docs/               # Documentation
 ```
 
 ## Changelog
 
 <details>
 <summary>Version history</summary>
+
+### v0.16.0 (2026-07-30)
+
+- **Architecture Refactoring**: Reduced technical debt by breaking down `main.py` into smaller, atomic modules (`core.stats`, `core.editor`, `core.fallback`, `constants`).
+- Fixed configuration state bug where `ConfigManager` unintentionally mutated default constants globally.
+- Cleaned up duplicated inline code into shared imports.
 
 ### v0.15.0 (2026-07-29)
 
