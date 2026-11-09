@@ -72,13 +72,13 @@ class TestPromptCustomization(unittest.TestCase):
     def test_get_recent_commits_success(self):
         """Verify get_recent_commits fetches and parses commits correctly with delimiter."""
         mock_output = "feat: add feature A\n===COMMIT_MSG_DELIMITER===\nfix: fix bug B\n===COMMIT_MSG_DELIMITER===\n"
-        
+
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout=mock_output, returncode=0)
-            
+
             commits = get_recent_commits(limit=3, start_ref="HEAD")
             self.assertEqual(commits, ["feat: add feature A", "fix: fix bug B"])
-            
+
             mock_run.assert_called_once()
             args = mock_run.call_args[0][0]
             self.assertIn("git", args)
@@ -111,7 +111,7 @@ class TestPromptCustomization(unittest.TestCase):
             "branch_type": "feat",
             "issue_id": "#123"
         }
-        
+
         prompt_cfg = {
             "language": "en",
             "style": "conventional",
@@ -123,7 +123,7 @@ class TestPromptCustomization(unittest.TestCase):
             },
             "few_shot": 3
         }
-        
+
         prompt = build_prompt_with_context(
             base_prompt=base_prompt,
             git_context=git_context,
@@ -150,14 +150,14 @@ class TestPromptCustomization(unittest.TestCase):
             "context_summary": "Context summary data"
         }
         recent_commits = ["commit 1", "commit 2", "commit 3"]
-        
+
         prompt = build_prompt_with_context(
             base_prompt="Original base prompt (should be ignored)",
             git_context=git_context,
             prompt_cfg=prompt_cfg,
             recent_commits=recent_commits
         )
-        
+
         self.assertIn("Custom Header Instructions", prompt)
         self.assertIn("Context: Context summary data", prompt)
         self.assertIn("Few-shot examples:\n- commit 1\n- commit 2", prompt)
@@ -180,14 +180,14 @@ class TestPromptCustomization(unittest.TestCase):
             "issue_id": "#456"
         }
         recent_commits = ["chore: clean files"]
-        
+
         prompt = build_prompt_with_context(
             base_prompt=base_prompt,
             git_context=git_context,
             prompt_cfg=prompt_cfg,
             recent_commits=recent_commits
         )
-        
+
         self.assertIn("Base Prompt", prompt)
         self.assertIn("ADDITIONAL RULES:", prompt)
         self.assertIn("- Language: fr", prompt)

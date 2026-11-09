@@ -3,6 +3,8 @@ import os
 import re
 from typing import Any, Dict, Optional
 
+from git_sensei.constants import DEFAULT_PROMPT
+
 # Try to import tomli (Python 3.11+ has tomllib built-in, otherwise generic tomli)
 try:
     import tomllib as toml  # Python 3.11+
@@ -28,33 +30,7 @@ DEFAULT_CONFIG = {
         "few_shot": 3
     },
     "prompts": {
-        "universal": """You are a professional git commit message generator.
-
-TASK: Analyze the git diff and generate a complete, professional commit message.
-
-OUTPUT FORMAT (output ONLY the commit message, nothing else):
-
-type(scope): concise summary (max 72 chars)
-
-Brief paragraph explaining WHAT changed and WHY (2-3 sentences).
-
-- Bullet point for specific change 1
-- Bullet point for specific change 2
-- Bullet point for specific change 3
-
-{issue_footer}
-
-RULES:
-- Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
-- Use imperative mood: "add", "fix", "update" (not "added", "fixed")
-- First line max 72 characters
-- Be specific about what changed and why
-- Group related changes in bullet points
-- NO markdown formatting, NO preamble like "Here's the commit message:"
-- Start DIRECTLY with the type (feat/fix/etc)
-- NO signatures like "Generated with..." or "Co-Authored-By"
-
-{context}"""
+        "universal": DEFAULT_PROMPT
     },
     "providers": {
         "antigravity": {
@@ -142,12 +118,12 @@ class ConfigManager:
                 try:
                     with open(path, "rb") as f:
                         data = toml.load(f)
-                        
+
                         # Security: Prevent project-level config from hijacking provider endpoints or commands
                         if level == "project" and "providers" in data:
                             print(f"\n[Security Warning] Ignoring 'providers' section in project-level {path} to prevent potential API key exfiltration.")
                             del data["providers"]
-                            
+
                         self._merge_config(data)
                 except Exception as e:
                     print(f"Warning: Failed to parse {path}: {e}")
@@ -156,7 +132,7 @@ class ConfigManager:
         """Recursive deep merge of dictionaries."""
         if base is None:
             base = self.config
-            
+
         for key, value in new_data.items():
             if isinstance(value, dict) and isinstance(base.get(key), dict):
                 self._merge_config(value, base[key])
@@ -189,14 +165,14 @@ class ConfigManager:
                 cfg[k] = v.copy()
             else:
                 cfg[k] = v
-        
+
         user_prompt = self.config.get("prompt", {})
         for k, v in user_prompt.items():
             if isinstance(v, dict) and k in cfg and isinstance(cfg[k], dict):
                 cfg[k].update(v)
             else:
                 cfg[k] = v
-        
+
         template = cfg.get("template")
         if isinstance(template, str) and os.path.exists(template) and os.path.isfile(template):
             try:

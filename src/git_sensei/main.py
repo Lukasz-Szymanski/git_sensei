@@ -157,7 +157,7 @@ def generate_and_review_commit_for_diff(
             for i, t in enumerate(types, 1):
                 typer.echo(f"  {i}. {t} {gitmojis.get(t, '')}")
             type_choice = typer.prompt("Choose type (number or name)", default="1")
-            
+
             selected_type = "feat"
             if type_choice.isdigit():
                 idx = int(type_choice) - 1
@@ -165,7 +165,7 @@ def generate_and_review_commit_for_diff(
                     selected_type = types[idx]
             elif type_choice in types:
                 selected_type = type_choice
-            
+
             include_emoji = typer.confirm("Include Gitmoji?", default=use_emoji)
             message = update_commit_message_header(message, selected_type, include_emoji)
         elif choice in ('n', 'no'):
@@ -182,16 +182,16 @@ def update_commit_message_header(message: str, new_type: str, include_emoji: boo
     if not lines:
         return message
     first_line = lines[0]
-    
+
     # Match conventional commit header pattern
     # Optional emoji at the start, followed by type, optional (scope), and subject
     pattern = r"^(?P<emoji>(?::\w+:|[\U00010000-\U0010ffff]\s*))?\s*(?P<type>[a-zA-Z0-9_-]+)(?P<scope>\([^)]+\))?(?P<breaking>!)?\s*:\s*(?P<subject>.*)$"
     match = re.match(pattern, first_line)
-    
+
     gitmojis = GITMOJI_MAP
-    
+
     emoji_prefix = (gitmojis.get(new_type, "") + " ") if (include_emoji and new_type in gitmojis) else ""
-    
+
     if match:
         scope = match.group("scope") or ""
         breaking = match.group("breaking") or ""
@@ -201,7 +201,7 @@ def update_commit_message_header(message: str, new_type: str, include_emoji: boo
     else:
         # Fallback if first line is not conventional commit format
         lines[0] = f"{emoji_prefix}{new_type}: {first_line}"
-        
+
     return "\n".join(lines)
 
 
@@ -244,14 +244,14 @@ def build_prompt_with_context(base_prompt: str, git_context: dict, prompt_cfg: d
         header = prompt_cfg.get("custom", {}).get("header", "")
         footer = prompt_cfg.get("custom", {}).get("footer", "")
         context_summary = git_context.get("context_summary", "")
-        
+
         examples_str = ""
         if recent_commits:
             limit = prompt_cfg.get("few_shot", 3)
             history = recent_commits[:limit]
             if history:
                 examples_str = "Few-shot examples:\n" + "\n".join(f"- {msg}" for msg in history)
-        
+
         parts = []
         if header:
             parts.append(header)
@@ -261,12 +261,12 @@ def build_prompt_with_context(base_prompt: str, git_context: dict, prompt_cfg: d
             parts.append(examples_str)
         if footer:
             parts.append(footer)
-            
+
         return "\n\n".join(parts)
 
     # Otherwise: Append rules and recent commits
     prompt = base_prompt.replace('{context}', context_str).replace('{issue_footer}', issue_footer)
-    
+
     rules = []
     if prompt_cfg:
         if prompt_cfg.get("language"):
@@ -275,16 +275,16 @@ def build_prompt_with_context(base_prompt: str, git_context: dict, prompt_cfg: d
             rules.append(f"Style: {prompt_cfg['style']}")
         if prompt_cfg.get("max_length"):
             rules.append(f"Max length: {prompt_cfg['max_length']} characters")
-            
+
     if rules:
         prompt += "\n\nADDITIONAL RULES:\n" + "\n".join(f"- {rule}" for rule in rules)
-        
+
     if recent_commits and prompt_cfg:
         limit = prompt_cfg.get("few_shot", 3)
         history = recent_commits[:limit]
         if history:
             prompt += "\n\nRECENT COMMITS:\n" + "\n".join(f"=== COMMIT ===\n{msg}\n==============" for msg in history)
-            
+
     return prompt
 
 
@@ -390,27 +390,27 @@ def commit(
                 for idx, group in enumerate(groups, 1):
                     files_str = ", ".join(group["files"])
                     typer.echo(f"  {idx}. {group['suggested_message']} (files: {files_str})")
-            
+
             if raw or typer.confirm("Split into separate commits?", default=True):
                 # Save original staged files
                 original_files = get_staged_files()
-                
+
                 # Unstage all
                 subprocess.run(["git", "reset"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                
+
                 try:
                     for idx, group in enumerate(groups, 1):
                         if not raw:
                             typer.echo(f"\nStaging changes for commit {idx}/{len(groups)}...")
                         for f in group["files"]:
                             subprocess.run(["git", "add", f], check=True)
-                        
+
                         group_diff = get_staged_diff()
                         if not group_diff:
                             if not raw:
                                 typer.echo(f"No changes found for group {idx}. Skipping.")
                             continue
-                        
+
                         success = generate_and_review_commit_for_diff(
                             diff=group_diff,
                             provider_name=provider_name,
@@ -504,7 +504,7 @@ def amend(
     git_context = get_git_context(config_mgr.config)
 
     current_msg = get_last_commit_message() or ""
-    
+
     if not raw and is_commit_pushed():
         typer.secho("⚠️  WARNING: The last commit has already been pushed to a remote.", fg=typer.colors.YELLOW)
         typer.secho("Amending will rewrite history and require a force push.", fg=typer.colors.YELLOW)
@@ -516,7 +516,7 @@ def amend(
 
     if not raw:
         typer.echo("Thinking...")
-    
+
     base_prompt = provider_cfg.get("prompt") or config_mgr.get_universal_prompt() or DEFAULT_PROMPT
     prompt_cfg = config_mgr.get_prompt_config()
     limit = prompt_cfg.get("few_shot", 3)
@@ -587,7 +587,7 @@ def amend(
             for i, t in enumerate(types, 1):
                 typer.echo(f"  {i}. {t} {gitmojis.get(t, '')}")
             type_choice = typer.prompt("Choose type (number or name)", default="1")
-            
+
             selected_type = "feat"
             if type_choice.isdigit():
                 idx = int(type_choice) - 1
@@ -595,7 +595,7 @@ def amend(
                     selected_type = types[idx]
             elif type_choice in types:
                 selected_type = type_choice
-            
+
             include_emoji = typer.confirm("Include Gitmoji?", default=use_emoji)
             message = update_commit_message_header(message, selected_type, include_emoji)
         elif choice in ('n', 'no'):
@@ -793,7 +793,7 @@ def squash(
         sys.exit(0)
 
     typer.echo(f"Found {commit_count} commits ahead of {base}.")
-    
+
     # 2. Select provider
     provider_name = provider or config_mgr.get_default_provider()
     provider_cfg = config_mgr.get_provider_config(provider_name)
@@ -860,10 +860,10 @@ def squash(
         plan_path = f.name
 
     typer.echo("Executing git rebase -i...")
-    
+
     # We create a script that just copies our plan over the rebase-todo
     sequence_editor = f"python3 -c \"import shutil, sys; shutil.copy('{plan_path}', sys.argv[1])\""
-    
+
     env = os.environ.copy()
     env["GIT_SEQUENCE_EDITOR"] = sequence_editor
 
@@ -895,7 +895,7 @@ def create_pr(
             stderr=subprocess.DEVNULL,
             text=True
         ).strip()
-        
+
         diff_output = subprocess.check_output(
             ["git", "diff", f"{base}...HEAD"],
             stderr=subprocess.DEVNULL,
@@ -940,7 +940,7 @@ def create_pr(
     except Exception as e:
         typer.secho(f"\nAI Error: {e!s}", fg=typer.colors.RED)
         sys.exit(1)
-        
+
     pr_description = re.sub(r'^```[a-zA-Z]*\n', '', pr_description)
     pr_description = pr_description.replace('```', '').strip()
 
@@ -967,7 +967,7 @@ def create_pr(
             with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
                 f.write(pr_body)
                 body_path = f.name
-            
+
             try:
                 subprocess.run(["gh", "pr", "create", "--base", base, "--title", pr_title, "--body-file", body_path], check=True)
                 typer.secho("Pull Request created successfully!", fg=typer.colors.GREEN)
@@ -1010,12 +1010,12 @@ def stats_cmd(
     accepted = decisions.get("accepted", 0)
     rejected = decisions.get("rejected", 0)
     rate = round(accepted / (accepted + rejected) * 100) if (accepted + rejected) > 0 else 0
-    
+
     typer.echo("Git-Sensei Statistics")
     typer.echo("──────────────────────")
     typer.echo(f"Commits generated:  {attempts}")
     typer.echo(f"Acceptance rate:    {rate}% ({accepted} accepted, {rejected} rejected)")
-    
+
     # Providers breakdown
     providers = stats.get("providers", {})
     if providers:
@@ -1024,7 +1024,7 @@ def stats_cmd(
             pct = round((count / attempts) * 100) if attempts > 0 else 0
             prov_parts.append(f"{name} ({pct}%)")
         typer.echo(f"Provider usage:     {', '.join(prov_parts)}")
-        
+
     # Types distribution
     types = stats.get("types", {})
     if types:
@@ -1034,7 +1034,7 @@ def stats_cmd(
             pct = round((count / attempts) * 100) if attempts > 0 else 0
             type_parts.append(f"{t_name} ({pct}%)")
         typer.echo(f"Most common type:   {', '.join(type_parts)}")
-        
+
     typer.echo(f"Average msg length: {stats.get('average_message_length', 0)} chars")
 
 
@@ -1069,16 +1069,16 @@ def lint_cmd(
         errors.append("Commit message is empty.")
     else:
         first_line = lines[0].strip()
-        
+
         # Check Conventional Commits standard
         pattern = r"^(?::\w+:|[\U00010000-\U0010ffff]\s*)?\s*(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(?:\([^)]+\))?!?\s*:\s*.+$"
         if not re.match(pattern, first_line):
             errors.append("First line does not match Conventional Commits format (e.g. 'feat(scope): add feature').")
-            
+
         # Check first line length
         if len(first_line) > 72:
             errors.append(f"First line exceeds 72 characters ({len(first_line)} chars).")
-            
+
         # Check disallowed markdown
         if "`" in first_line or "**" in first_line or "*" in first_line:
             errors.append("First line contains disallowed markdown formatting (backticks, bold, italic).")
@@ -1088,7 +1088,7 @@ def lint_cmd(
         for err in errors:
             typer.secho(f"  - {err}", err=True, fg=typer.colors.RED)
         sys.exit(1)
-        
+
     typer.secho("✓ Commit message is valid.", fg=typer.colors.GREEN)
     sys.exit(0)
 
@@ -1104,14 +1104,14 @@ def log_cmd(
     log_args = ["git", "log", "--no-merges", "--format=%h %B===COMMIT_DELIMITER==="]
     if limit > 0:
         log_args.append(f"-{limit}")
-        
+
     try:
         res = subprocess.run(log_args, capture_output=True, text=True, encoding="utf-8", check=True)
         raw_log = res.stdout
     except Exception as e:
         typer.secho(f"Error running git log: {e}", fg=typer.colors.RED)
         sys.exit(1)
-        
+
     commits_raw = raw_log.split("===COMMIT_DELIMITER===")
     commits = []
     for c in commits_raw:
@@ -1121,7 +1121,7 @@ def log_cmd(
             hash_str = parts[0]
             msg = parts[1] if len(parts) > 1 else ""
             commits.append((hash_str, msg))
-            
+
     if not commits:
         typer.echo("No commits found.")
         return
@@ -1135,7 +1135,7 @@ def log_cmd(
     for hash_str, msg in commits:
         first_line = msg.strip().splitlines()[0] if msg.strip() else ""
         match = re.match(pattern, first_line)
-        
+
         color = typer.colors.WHITE
         is_valid = False
         display_type = "unknown"
@@ -1147,9 +1147,9 @@ def log_cmd(
             display_type = match.group("type")
             display_scope = match.group("scope") or ""
             display_subject = match.group("subject")
-            
+
             type_counts[display_type] = type_counts.get(display_type, 0) + 1
-            
+
             color_map = {
                 "feat": typer.colors.GREEN,
                 "fix": typer.colors.RED,
@@ -1164,17 +1164,17 @@ def log_cmd(
                 "revert": typer.colors.CYAN
             }
             color = color_map.get(display_type, typer.colors.WHITE)
-            
+
         if is_valid:
             valid_count += 1
             status_marker = typer.style("✓", fg=typer.colors.GREEN)
         else:
             status_marker = typer.style("✗", fg=typer.colors.RED)
-            
+
         hash_styled = typer.style(hash_str, fg=typer.colors.BRIGHT_BLACK)
         type_styled = typer.style(display_type, fg=color, bold=True)
         scope_styled = f"({typer.style(display_scope, fg=typer.colors.MAGENTA)})" if display_scope else ""
-        
+
         if match:
             typer.echo(f"* {hash_styled} {type_styled}{scope_styled}: {display_subject}  {status_marker}")
         else:

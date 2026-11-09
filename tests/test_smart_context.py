@@ -53,7 +53,7 @@ class TestExtractIssueId(unittest.TestCase):
 
     def test_jira_at_start(self):
         self.assertEqual(extract_issue_id("JIRA-456-fix-bug"), "JIRA-456")
-        
+
     def test_jira_lowercase(self):
         self.assertEqual(extract_issue_id("feature/proj-123-fix"), "PROJ-123")
 
@@ -72,7 +72,7 @@ class TestExtractIssueId(unittest.TestCase):
 
     def test_github_issue_slash(self):
         self.assertEqual(extract_issue_id("issue/789"), "#789")
-        
+
     def test_github_gh_prefix(self):
         self.assertEqual(extract_issue_id("feature/gh-123-fix"), "#123")
         self.assertEqual(extract_issue_id("GH-456-add-button"), "#456")
@@ -80,7 +80,7 @@ class TestExtractIssueId(unittest.TestCase):
     # Azure DevOps
     def test_azure_devops(self):
         self.assertEqual(extract_issue_id("feature/AB#123-task"), "AB#123")
-        
+
     def test_azure_devops_ado_prefix(self):
         self.assertEqual(extract_issue_id("feature/ado-123-task"), "AB#123")
         self.assertEqual(extract_issue_id("ADO-456-fix"), "AB#456")

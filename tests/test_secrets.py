@@ -88,9 +88,6 @@ class TestSecretsDetection(unittest.TestCase):
         """Should detect Slack webhook URL."""
         # Test the regex pattern matches Slack webhook format
         # Using example.com to avoid GitHub secret scanning
-        diff = """+++ b/config.py
-+SLACK_URL = "https://hooks.example.com/services/T12345678/B12345678/aB1cD2eF3gH4iJ5kL6mN7oP8"
-"""
         # This won't match because domain is different, so test the pattern directly
         import re
         pattern = r'https://hooks\.slack\.com/services/[A-Z0-9]+/[A-Z0-9]+/[A-Za-z0-9]+'

@@ -75,7 +75,7 @@ def fetch_issue_context(issue_id: str) -> Optional[str]:
     """
     if not issue_id:
         return None
-    
+
     # Simple GitHub integration using gh cli
     # issue_id is usually formatted as "#42" or "GH-42"
     number = re.sub(r'[^0-9]', '', issue_id)
@@ -90,7 +90,7 @@ def fetch_issue_context(issue_id: str) -> Optional[str]:
                 stderr=subprocess.DEVNULL,
                 text=True
             ).strip()
-            
+
             # Sanitize to prevent prompt injection
             # 1. Remove HTML/Markdown comments that might hide malicious instructions
             output = re.sub(r'<!--.*?-->', '', output, flags=re.DOTALL)
@@ -99,11 +99,11 @@ def fetch_issue_context(issue_id: str) -> Optional[str]:
             # 3. Limit length to avoid massive prompts or complex injections
             if len(output) > 500:
                 output = output[:500] + "...\n(truncated)"
-            
+
             return f"--- START EXTERNAL ISSUE CONTENT ---\n{output.strip()}\n--- END EXTERNAL ISSUE CONTENT ---"
         except subprocess.CalledProcessError:
             pass
-            
+
     return None
 
 
@@ -176,7 +176,7 @@ def get_amend_files() -> List[str]:
         diff_cmd = ["git", "diff", "HEAD~1", "--staged", "--name-only"]
     except subprocess.CalledProcessError:
         diff_cmd = ["git", "diff", EMPTY_TREE_SHA, "--staged", "--name-only"]
-        
+
     try:
         result = subprocess.run(
             diff_cmd,
@@ -254,7 +254,7 @@ def get_amend_diff() -> Optional[str]:
     except subprocess.CalledProcessError:
         # Initial commit fallback (diff against empty tree)
         diff_cmd = ["git", "diff", EMPTY_TREE_SHA, "--staged"]
-        
+
     result = subprocess.run(
         diff_cmd,
         capture_output=True, text=True, encoding='utf-8', errors='replace'
@@ -365,7 +365,7 @@ def get_staged_diff_filtered(config: dict, diff_override: Optional[str] = None) 
         if match:
             b_path = match.group(2)
             filename = match.group(1) if b_path in ("/dev/null", "dev/null") else b_path
-        
+
         if not filename:
             included_chunks.append((fd, len(fd) // 4, ""))
             continue
@@ -386,7 +386,7 @@ def get_staged_diff_filtered(config: dict, diff_override: Optional[str] = None) 
             if matches_pattern(filename, pat):
                 matched_pattern = pat
                 break
-        
+
         if matched_pattern:
             # Check if it is a lockfile
             if filename in ("package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock"):
@@ -437,7 +437,7 @@ def get_staged_diff_filtered(config: dict, diff_override: Optional[str] = None) 
             combined_diff = "\n".join(t[0] for t in included_chunks)
             lines = combined_diff.splitlines()
             half_budget = max_tokens // 2
-            
+
             # Head lines
             head_lines = []
             current_tokens = 0
@@ -449,7 +449,7 @@ def get_staged_diff_filtered(config: dict, diff_override: Optional[str] = None) 
                     break
                 head_lines.append(line)
                 current_tokens += line_tokens
-            
+
             # Tail lines
             tail_lines = []
             current_tokens = 0
@@ -459,26 +459,26 @@ def get_staged_diff_filtered(config: dict, diff_override: Optional[str] = None) 
                     break
                 tail_lines.insert(0, line)
                 current_tokens += line_tokens
-            
+
             filtered_diff = "\n".join(head_lines) + "\n... [TRUNCATED] ...\n" + "\n".join(tail_lines)
         else: # "smart"
             # Sort files by diff size (ascending) to keep as many complete files as possible
             included_chunks_sorted = sorted([t for t in included_chunks if t[2]], key=lambda x: x[1])
             allowed_files = set()
             current_tokens = 0
-            
+
             # Add files without filenames (e.g. general diff chunks if any) first or keep them
             general_chunks = [t for t in included_chunks if not t[2]]
             for gc in general_chunks:
                 current_tokens += gc[1]
-                
+
             for fd, tokens, filename in included_chunks_sorted:
                 if current_tokens + tokens <= max_tokens:
                     allowed_files.add(filename)
                     current_tokens += tokens
                 else:
                     break
-            
+
             # For files that didn't fit, we summarize them
             diff_parts = []
             for fd, tokens, filename in included_chunks:
@@ -540,7 +540,7 @@ def detect_monorepo_scope(changed_files: List[str], monorepo_config: dict) -> Op
 
     for filepath in changed_files:
         matched_scope = None
-        
+
         # 1. Try custom scopes first (deepest match wins)
         for key in sorted_custom_keys:
             # Check prefix or glob match
@@ -582,9 +582,9 @@ def split_staged_diff(diff: str) -> List[dict]:
     # Parse files and their diffs from the combined diff
     file_diffs = re.split(r'(?=^diff --git )', diff, flags=re.MULTILINE)
     file_diffs = [fd for fd in file_diffs if fd.strip()]
-    
+
     files_by_group = {}
-    
+
     for fd in file_diffs:
         # Extract filename
         first_line = fd.split('\n')[0]
@@ -593,10 +593,10 @@ def split_staged_diff(diff: str) -> List[dict]:
         if match:
             b_path = match.group(2)
             filename = match.group(1) if b_path in ("/dev/null", "dev/null") else b_path
-        
+
         if not filename:
             continue
-            
+
         # Determine group key
         if filename.endswith(".md") or filename.startswith("docs/"):
             group_key = "docs"
@@ -611,15 +611,15 @@ def split_staged_diff(diff: str) -> List[dict]:
                 group_key = parts[0]
         else:
             group_key = "root"
-            
+
         if group_key not in files_by_group:
             files_by_group[group_key] = []
         files_by_group[group_key].append((filename, fd))
-        
+
     groups = []
     for g_key, file_list in files_by_group.items():
         filenames = [f[0] for f in file_list]
-        
+
         # Build a simple suggested message
         if g_key == "docs":
             msg = "docs: update documentation"
@@ -632,13 +632,13 @@ def split_staged_diff(diff: str) -> List[dict]:
             parts = g_key.split("/")
             scope = parts[-1]
             msg = f"feat({scope}): update {scope}"
-            
+
         groups.append({
             "files": filenames,
             "suggested_message": msg,
             "diff": "".join(f[1] for f in file_list)
         })
-        
+
     return groups
 
 

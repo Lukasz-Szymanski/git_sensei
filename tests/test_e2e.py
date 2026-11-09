@@ -21,7 +21,7 @@ class TestEndToEnd(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp()
         self.original_cwd = os.getcwd()
         os.chdir(self.test_dir)
-        
+
         # Initialize a git repository
         subprocess.run(["git", "init"], check=True, capture_output=True)
         # Set git config so commit works
@@ -39,21 +39,21 @@ class TestEndToEnd(unittest.TestCase):
         # Setup mock AI
         mock_provider = mock_provider_class.return_value
         mock_provider.execute.return_value = "feat: add user authentication\n\nThis is a mock commit."
-        
+
         # Create and stage a file
         with open("test_file.txt", "w") as f:
             f.write("Hello World")
         subprocess.run(["git", "add", "test_file.txt"], check=True)
-        
+
         # Run sensei commit, simulating "y" to accept the commit
         # By passing --provider echo, we avoid config loading issues, though AIProvider is mocked anyway.
         result = runner.invoke(app, ["commit", "--provider", "echo"], input="y\n")
-        
+
         # Verify CLI output
         self.assertEqual(result.exit_code, 0)
         self.assertIn("feat: add user authentication", result.stdout)
         self.assertIn("Committed!", result.stdout)
-        
+
         # Verify git log to ensure the commit was actually created
         log_result = subprocess.run(["git", "log", "-1", "--pretty=%B"], capture_output=True, text=True)
         self.assertIn("feat: add user authentication", log_result.stdout)
@@ -63,17 +63,17 @@ class TestEndToEnd(unittest.TestCase):
         """Test user aborting the commit message."""
         mock_provider = mock_provider_class.return_value
         mock_provider.execute.return_value = "feat: bad message"
-        
+
         with open("test_file2.txt", "w") as f:
             f.write("Hello World")
         subprocess.run(["git", "add", "test_file2.txt"], check=True)
-        
+
         # Simulate "n" to abort
         result = runner.invoke(app, ["commit"], input="n\n")
-        
+
         self.assertEqual(result.exit_code, 0)
         self.assertIn("Aborted.", result.stdout)
-        
+
         # Ensure no commits were made
         log_result = subprocess.run(["git", "log"], capture_output=True, text=True)
         self.assertNotEqual(log_result.returncode, 0) # git log fails if there are no commits
@@ -84,21 +84,21 @@ class TestEndToEnd(unittest.TestCase):
         # Setup mock AI
         mock_provider = mock_provider_class.return_value
         mock_provider.execute.return_value = "feat: amended commit message\n\nMock amended body"
-        
+
         # Create and stage a file, then commit
         with open("test_amend.txt", "w") as f:
             f.write("Amend me")
         subprocess.run(["git", "add", "test_amend.txt"], check=True)
         subprocess.run(["git", "commit", "-m", "initial commit"], check=True)
-        
+
         # Run sensei amend, simulating "y" to accept the commit
         result = runner.invoke(app, ["amend", "--provider", "echo"], input="y\n")
-        
+
         # Verify CLI output
         self.assertEqual(result.exit_code, 0)
         self.assertIn("feat: amended commit message", result.stdout)
         self.assertIn("Amended!", result.stdout)
-        
+
         # Verify git log to ensure the commit was actually amended
         log_result = subprocess.run(["git", "log", "-1", "--pretty=%B"], capture_output=True, text=True)
         self.assertIn("feat: amended commit message", log_result.stdout)

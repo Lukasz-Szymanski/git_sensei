@@ -27,7 +27,7 @@ class TestCoreFallback(unittest.TestCase):
         diff = "diff --git a/src/main.py b/src/main.py\n+++ b/src/main.py\n+def new_feature(): pass"
         msg = generate_fallback_message(diff)
         self.assertTrue(msg.startswith("feat(main): implement logic in main.py"))
-        
+
         diff_fix = "diff --git a/app.js b/app.js\n+++ b/app.js\n+ // fix error"
         msg_fix = generate_fallback_message(diff_fix)
         self.assertTrue(msg_fix.startswith("fix(app): fix logic in app.js"))

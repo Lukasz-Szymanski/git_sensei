@@ -73,7 +73,7 @@ class TestCLIDiagnostics(unittest.TestCase):
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
             f.write("fix: repair broken behavior")
             temp_path = f.name
-            
+
         try:
             result = self.runner.invoke(app, ["lint", temp_path])
             self.assertEqual(result.exit_code, 0)

@@ -22,7 +22,7 @@ def record_commit_stat(provider: str, decision: str, commit_type: str, message_l
     """Record a commit attempt, type, provider and accept/reject decision."""
     path = get_stats_file_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    
+
     stats = {}
     if os.path.exists(path):
         try:
@@ -30,23 +30,23 @@ def record_commit_stat(provider: str, decision: str, commit_type: str, message_l
                 stats = json.load(f)
         except (OSError, json.JSONDecodeError) as e:
             print(f"Warning: Failed to read stats: {e}")
-            
+
     stats["generated_attempts"] = stats.get("generated_attempts", 0) + 1
-    
+
     decisions = stats.setdefault("decisions", {"accepted": 0, "rejected": 0})
     decisions[decision] = decisions.get(decision, 0) + 1
-    
+
     providers = stats.setdefault("providers", {})
     providers[provider] = providers.get(provider, 0) + 1
-    
+
     types = stats.setdefault("types", {})
     types[commit_type] = types.get(commit_type, 0) + 1
-    
+
     # Calculate rolling average message length
     total_len_sum = stats.get("total_message_length_sum", 0) + message_len
     stats["total_message_length_sum"] = total_len_sum
     stats["average_message_length"] = round(total_len_sum / stats["generated_attempts"])
-    
+
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(stats, f, indent=2)

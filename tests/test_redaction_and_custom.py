@@ -56,10 +56,10 @@ class TestRedactionAndCustomAPI(unittest.TestCase):
         }
         provider = AIProvider("deepseek", config)
         self.assertTrue(provider.check_health())
-        
+
         result = provider.execute("some diff", "system prompt")
         self.assertEqual(result, "feat: test message")
-        
+
         # Verify call parameters
         args = mock_urlopen.call_args[0][0]
         self.assertEqual(args.full_url, "https://api.deepseek.com/v1/chat/completions")
@@ -77,10 +77,10 @@ class TestRedactionAndCustomAPI(unittest.TestCase):
         }
         provider = AIProvider("ollama", config)
         self.assertTrue(provider.check_health())
-        
+
         result = provider.execute("some diff", "system prompt")
         self.assertEqual(result, "feat: local message")
-        
+
         args = mock_urlopen.call_args[0][0]
         self.assertEqual(args.full_url, "http://localhost:11434/v1/chat/completions")
         self.assertEqual(args.get_header("Authorization"), "Bearer dummy")

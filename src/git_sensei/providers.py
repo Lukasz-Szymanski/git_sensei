@@ -49,7 +49,7 @@ class CLIProvider(BaseProvider):
     def __init__(self, name: str, config: dict):
         super().__init__(name, config)
         self.command_template = config.get("command")
-        
+
     def execute(self, diff: str, system_prompt: str) -> str:
         if not self.command_template:
             raise ValueError(f"Provider '{self.name}' has no command defined.")
@@ -60,11 +60,11 @@ class CLIProvider(BaseProvider):
         except ValueError as e:
             print(f"\n[Error] Invalid command template in config: {e}")
             return ""
-            
+
         executable = shutil.which(args[0])
         if executable:
             args[0] = executable
-        
+
         try:
             process = subprocess.Popen(
                 args,
@@ -74,7 +74,7 @@ class CLIProvider(BaseProvider):
                 text=True,
                 encoding='utf-8'
             )
-            
+
             # Added timeout to prevent hanging on stalled CLI tools
             stdout, stderr = process.communicate(input=diff, timeout=45)
 
@@ -115,7 +115,7 @@ class GeminiProvider(BaseProvider):
             print("\n[Error] GEMINI_API_KEY environment variable not set.")
             print("Please set it using: export GEMINI_API_KEY='your_key'")
             return ""
-            
+
         model = self.model or "gemini-1.5-flash"
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         headers = {"Content-Type": "application/json"}
@@ -130,7 +130,7 @@ class GeminiProvider(BaseProvider):
                 }
             ]
         }
-        
+
         try:
             req = urllib.request.Request(
                 url,
@@ -185,12 +185,12 @@ class OpenAIProvider(BaseProvider):
         is_local = "localhost" in url or "127.0.0.1" in url
         env_key_name = self.api_key_env or "OPENAI_API_KEY"
         api_key = os.getenv(env_key_name)
-        
+
         if not api_key and not is_local:
             print(f"\n[Error] {env_key_name} environment variable not set.")
             print(f"Please set it using: export {env_key_name}='your_key'")
             return ""
-            
+
         key_val = api_key or "dummy"
         model = self.model or "gpt-4o-mini"
         headers = {
@@ -204,7 +204,7 @@ class OpenAIProvider(BaseProvider):
                 {"role": "user", "content": f"Analyze the diff and generate the commit message:\n\n{diff}"}
             ]
         }
-        
+
         try:
             req = urllib.request.Request(
                 url,
@@ -257,7 +257,7 @@ def AIProvider(name: str, config: dict) -> BaseProvider:
     """
     api_type = config.get("api_type")
     api_url = config.get("api_url")
-    
+
     if api_type == "gemini":
         return GeminiProvider(name, config)
     elif api_type == "openai" or api_url:

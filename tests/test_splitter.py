@@ -27,14 +27,14 @@ class TestAtomicCommitSplitter(unittest.TestCase):
         )
         groups = split_staged_diff(raw_diff)
         self.assertEqual(len(groups), 3)
-        
+
         # Verify groups properties
         docs_group = next(g for g in groups if "docs/README.md" in g["files"])
         self.assertEqual(docs_group["suggested_message"], "docs: update documentation")
-        
+
         auth_group = next(g for g in groups if "packages/auth/index.js" in g["files"])
         self.assertEqual(auth_group["suggested_message"], "feat(auth): update auth")
-        
+
         test_group = next(g for g in groups if "tests/test_auth.py" in g["files"])
         self.assertEqual(test_group["suggested_message"], "test: update unit tests")
 
