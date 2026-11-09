@@ -1,23 +1,22 @@
 # Git-Sensei
 
 [![CI](https://github.com/Lukasz-Szymanski/git_sensei/actions/workflows/ci.yml/badge.svg)](https://github.com/Lukasz-Szymanski/git_sensei/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/git-sensei-ai.svg)](https://pypi.org/project/git-sensei-ai/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ![Git-Sensei Demo](docs/demo.jpg)
 
-> **Smart Context. Universal AI Adapter. Professional Commits.**
-
-A CLI tool that generates professional commit messages using any AI provider (Antigravity, Claude Code, OpenAI, Ollama).
+A CLI tool that generates Conventional Commits messages from staged diffs using local or cloud LLMs (OpenAI, Gemini, Claude, Ollama, or any OpenAI-compatible API).
 
 ## Features
 
-- **Universal Providers** - Switch between Antigravity, Claude Code, OpenAI, or local LLMs with one command
-- **Secrets Shield** - Scans diffs for API keys, tokens, passwords before sending to AI
-- **Smart Context** - Auto-links commits to issue IDs from branch names (Jira, GitHub, GitLab, Linear, Azure DevOps)
-- **Branch Type Detection** - Auto-detects commit type from branch prefix (`feature/` → feat, `fix/` → fix)
-- **Conventional Commits** - Generates properly formatted commit messages
-- **Offline Fallback** - Heuristic engine works when AI is unavailable
-- **Interactive Review** - Edit, retry, or approve before committing
-- **Editor Integration** - Edit commit messages in your preferred IDE (VS Code, PyCharm, etc.)
+- **Multi-Provider Support**: Switch between OpenAI, Google Gemini API, Claude CLI, Ollama, or custom OpenAI-compatible endpoints (DeepSeek, Groq, OpenRouter).
+- **Secrets Shield**: Scans staged diffs for API keys, tokens, and credentials before sending anything to an external provider.
+- **Smart Context**: Extracts issue IDs (`#42`, `PROJ-123`) and commit types (`feature/` -> `feat`, `fix/` -> `fix`) directly from branch names, with optional GitHub issue context via `gh`.
+- **Atomic Commit Splitting**: Groups unrelated changes from a large working tree into separate, logical commits (`sensei commit --split`).
+- **PR & Rebase Automation**: Generates pull request descriptions (`sensei pr`) and interactive rebase plans (`sensei squash`).
+- **Offline Fallback**: Heuristic diff analyzer when working offline or without API access.
+- **Interactive Review**: Approve, regenerate, refine, or edit messages in `$EDITOR` before committing.
 
 ## Installation
 
@@ -25,465 +24,135 @@ A CLI tool that generates professional commit messages using any AI provider (An
 pip install git-sensei-ai
 ```
 
-## Requirements
-
-- **Python 3.9+**
-- **Git**
-- **One of the AI CLI tools:**
-
-| Provider    | Installation                               |
-| ----------- | ------------------------------------------ |
-| Antigravity | `npm install -g @google/antigravity-cli`  |
-| Claude Code | `npm install -g @anthropic-ai/claude-code` |
-| OpenAI      | `pip install chatgpt-cli`                  |
-| Ollama      | [ollama.ai](https://ollama.ai)             |
-
 ## Quick Start
 
 ```bash
-sensei init      # First time setup (choose AI provider)
-git add .        # Stage your changes
-sensei commit    # Generate commit with AI
+sensei init      # Configure default provider
+git add .        # Stage changes
+sensei commit    # Generate and review commit message
 ```
+
+## Commands
+
+| Command | Description |
+| :--- | :--- |
+| `sensei init` | Interactive setup wizard with connection check |
+| `sensei commit` | Generate and create a commit from staged changes |
+| `sensei commit --split` | Split staged changes into multiple logical commits |
+| `sensei commit -p <name>` | Use a specific provider for this commit |
+| `sensei commit -d` | Dry run (preview generated message without committing) |
+| `sensei commit --emoji` | Include a Gitmoji prefix |
+| `sensei amend` | Rewrite the last commit message |
+| `sensei squash` | Generate an interactive rebase plan against a base branch |
+| `sensei pr` | Generate a PR description and open a PR via GitHub CLI (`gh`) |
+| `sensei use <provider>` | Set the default provider |
+| `sensei ls` | List configured providers |
+| `sensei check [provider]` | Test connection to a provider |
+| `sensei lint <msg>` | Validate a commit message against Conventional Commits rules |
+| `sensei log` | View recent commit history with format compliance indicators |
+| `sensei stats` | Show local commit generation statistics |
+| `sensei install-hook` | Install as a native `prepare-commit-msg` git hook |
 
 ## Git Hooks & Pre-commit
 
-### 1. Traditional Git Hook
-You can install a native Git hook in your local repository to automatically generate commit messages whenever you run `git commit` (without having to type `sensei commit` manually):
+### Native Git Hook
+
+Run `sensei` automatically whenever you invoke `git commit`:
 
 ```bash
 sensei install-hook
 ```
 
-### 2. Pre-commit Framework Integration
-To enforce Conventional Commits formatting across your team, you can use Git-Sensei as a linter inside the [pre-commit](https://pre-commit.com/) framework.
+### Pre-commit Framework
 
-Add the following to your project's `.pre-commit-config.yaml`:
+To lint commit messages with [pre-commit](https://pre-commit.com/), add this to `.pre-commit-config.yaml`:
 
 ```yaml
 repos:
   - repo: https://github.com/Lukasz-Szymanski/git_sensei
-    rev: v0.14.0  # Use the latest release version tag
+    rev: v0.15.1
     hooks:
       - id: git-sensei-lint
 ```
 
-Then install the hook with:
+Then enable the `commit-msg` hook:
+
 ```bash
 pre-commit install --hook-type commit-msg
-```
-This hook will automatically validate all commit messages during the `commit-msg` git stage.
-
-### First Time Setup
-
-```
-$ sensei init
-Welcome to Git-Sensei!
-
-Select your AI provider:
-
-  1. Google Antigravity (npm i -g @google/antigravity-cli)
-  2. Claude Code (npm i -g @anthropic-ai/claude-code)
-  3. OpenAI GPT-4 (pip install chatgpt-cli)
-  4. Ollama (https://ollama.ai)
-
-Select provider [1]: 2
-
-Selected: Claude Code
-Testing connection... OK
-
-Config saved to ~/.sensei.toml
-Default provider: claude
-
-Ready! Run: git add . && sensei commit
-```
-
-The wizard will:
-- Detect existing configuration and ask before overwriting
-- Test the connection with a real AI request
-- Show installation instructions if the provider is not found
-
-## Commands
-
-| Command                   | Description                            |
-| ------------------------- | -------------------------------------- |
-| `sensei init`             | Interactive setup wizard (with connection test) |
-| `sensei commit`           | Generate and create a commit           |
-| `sensei amend`            | Rewrite the last commit message using AI |
-| `sensei squash`           | Auto-generate an AI rebase plan to squash commits |
-| `sensei pr`               | Generate PR description and create via GitHub CLI |
-| `sensei commit -p claude` | Use specific provider                  |
-| `sensei commit -d`        | Dry run (preview only)                 |
-| `sensei commit --emoji`   | Generate commit with Gitmoji prefix    |
-| `sensei use <provider>`   | Set default AI provider                |
-| `sensei ls`               | List available providers               |
-| `sensei check [provider]` | Verify provider is working             |
-| `sensei install-hook`     | Install as git `prepare-commit-msg` hook |
-
-### Examples
-
-```bash
-sensei commit                 # Use default provider (Antigravity CLI)
-sensei amend                  # Rewrite last commit message
-sensei squash                 # Auto-squash commits against the base branch
-sensei pr                     # Generate and create PR via GitHub CLI
-sensei commit -p gemini-api   # Use Native Gemini API (requires GEMINI_API_KEY)
-sensei commit --emoji         # Generate with emojis (e.g. ✨ feat: add login)
-sensei commit -d              # Preview without committing
-sensei use gemini-api         # Set Gemini API as default
-sensei ls                     # List providers (* = default)
-sensei check                  # Check default provider
-sensei install-hook           # Set up standard git hook
 ```
 
 ## Configuration
 
-Sensei loads configuration from (in order of priority):
+Configuration is loaded in the following order of priority:
 
-1. `~/.sensei.toml` (user config - highest priority)
-2. `./.sensei.toml` (project config)
-3. Package defaults
+1. `~/.sensei.toml` (user config)
+2. `./.sensei.toml` (repository config)
+3. Built-in defaults
 
-### Example `.sensei.toml`
+### Local Ollama (HTTP API)
 
 ```toml
 [core]
-default_provider = "claude"
+default_provider = "ollama_api"
 
-[providers.claude]
-description = "Claude Code CLI"
-command = "claude --print \"{system}\""
-prompt = """OUTPUT ONLY THE COMMIT MESSAGE. NO EXPLANATIONS.
-
-Format: type(scope): summary
-
-- bullet points for details
-
-Types: feat, fix, docs, refactor, chore
-Start DIRECTLY with type."""
-```
-
-- `{system}` - replaced with the prompt
-- `prompt` - custom prompt per provider (optional)
-- Git diff is piped to stdin
-
-### Custom OpenAI-Compatible & Local LLM (Ollama) Setup
-
-You can configure Git-Sensei to use local models running via Ollama or custom OpenAI-compatible endpoints (like DeepSeek, Groq, OpenRouter) natively or via CLI.
-
-Add the following to your `~/.sensei.toml`:
-
-#### Option A: Local Ollama via Native HTTP API (Recommended)
-This uses Ollama's built-in OpenAI-compatible endpoint. No API key is required.
-
-```toml
 [providers.ollama_api]
 description = "Local Llama 3 via Ollama API"
 api_url = "http://localhost:11434/v1/chat/completions"
 model = "llama3"
 ```
 
-#### Option B: Local Ollama via CLI Command
-This pipes the diff directly into the `ollama` command line tool.
-
-```toml
-[providers.ollama_cli]
-description = "Local Llama 3 via CLI"
-command = "ollama run llama3 \"{system}\""
-```
-
-#### Option C: Custom OpenAI-Compatible API (e.g. DeepSeek)
-You can point to any external API and map its API key to a custom environment variable.
+### OpenAI-Compatible Endpoints (DeepSeek, OpenRouter, Groq)
 
 ```toml
 [providers.deepseek]
-description = "DeepSeek Coder API"
+description = "DeepSeek API"
 api_url = "https://api.deepseek.com/v1/chat/completions"
 api_key_env = "DEEPSEEK_API_KEY"
-model = "deepseek-coder"
+model = "deepseek-chat"
 ```
 
-### Tuning Prompts
+### CLI-Based Providers
 
-Use dry run to test your prompt without committing:
-
-```bash
-sensei commit -d          # Preview generated message
-# Edit .sensei.toml prompt if needed
-sensei commit -d          # Test again
-sensei commit             # Commit when satisfied
+```toml
+[providers.claude]
+description = "Claude CLI"
+command = "claude --print \"{system}\""
 ```
 
-Each AI model may need different prompting style. Adjust per provider in config.
+## Interactive Review Workflow
 
-## Interactive Workflow
-
-After generating a message, you'll see:
-
-```
+```text
 Context: Type: feat; Closes issue #42
 --------------------------------------------------
-feat(auth): add user login endpoint
+feat(auth): add JWT login endpoint
 
-Implement JWT-based authentication with secure token handling.
-
-- Add login endpoint with email/password validation
-- Implement JWT token generation and verification
-- Add middleware for protected routes
+- Add login route with credential validation
+- Issue and verify signed JWT tokens
+- Protect authenticated routes with middleware
 
 Closes #42
 --------------------------------------------------
-Action? [y]es, [n]o, [e]dit, [r]etry
+Action? [y]es, [n]o, [e]dit, [r]etry, re[f]ine, [s]elect type
 ```
 
-- **y** - Commit with this message
-- **n** - Abort
-- **e** - Edit in external editor (VS Code, PyCharm, etc.)
-- **r** - Regenerate with AI
-
-### Smart Context Detection
-
-Sensei automatically detects context from your branch name:
-
-| Branch Name | Detected Context |
-|-------------|------------------|
-| `feature/42-add-login` | Type: feat, Closes #42 |
-| `fix/123-crash-bug` | Type: fix, Closes #123 |
-| `hotfix/PROJ-456-security` | Type: hotfix, Refs: PROJ-456 |
-| `refactor/cleanup` | Type: refactor |
-
-This context is passed to the AI for better commit messages.
-
-### Editor Integration
-
-When you press `[e]dit`, Sensei opens the commit message in your configured editor.
-
-**Setup your editor (one-time):**
-
-```bash
-# VS Code
-git config --global core.editor "code --wait"
-
-# PyCharm
-git config --global core.editor "pycharm --wait"
-
-# Cursor
-git config --global core.editor "cursor --wait"
-
-# Vim
-git config --global core.editor "vim"
-```
-
-Sensei uses this priority to find your editor:
-1. `$VISUAL` environment variable
-2. `$EDITOR` environment variable
-3. `git config core.editor`
-4. Platform default (notepad on Windows, nano on Linux/Mac)
-
-## CLI Commands & Diagnostics
-
-Sensei provides several diagnostic and helper commands to ensure quality and track your AI usage.
-
-<details>
-<summary><b>📊 sensei stats</b> (Track usage statistics)</summary>
-
-Displays local commit generation statistics, acceptance rate, model breakdown, and most common commit types.
-
-```bash
-$ sensei stats
-Git-Sensei Statistics
-──────────────────────
-Commits generated:  42
-Acceptance rate:    88% (37 accepted, 5 rejected)
-Provider usage:     gemini-api (76%), openai (24%)
-Most common type:   feat (52%), fix (30%), refactor (10%)
-Average msg length: 145 chars
-```
-
-Use `sensei stats --json` to export raw JSON, or `sensei stats --reset` to clear local stats.
-</details>
-
-<details>
-<summary><b>📜 sensei log</b> (Colored git history & validation)</summary>
-
-Displays recent commits with Conventional Commits color-coding and format validation markers (`✓` for valid, `✗` for invalid).
-
-```bash
-$ sensei log -n 5
-* 79c5291 chore: remove PROJECT.md tracking and add to ignore  ✓
-* fef09a0 chore: ignore .agents directory in gitignore  ✓
-* f5838f7 feat(custom-api): implement custom API support and secret redaction  ✓
-* bf4f1ef feat(split): implement atomic diff splitting  ✓
-* 3a104f2 docs: update documentation with invalid markdown `formatting`  ✗
-```
-
-Use `sensei log --stats` to print a Conventional Commits compliance summary at the end.
-</details>
-
-<details>
-<summary><b>🔍 sensei lint</b> (Commit message validation)</summary>
-
-Validates a commit message against Conventional Commits formatting rules, line lengths (max 72 chars), and checks for disallowed markdown styles (like backticks or bold text).
-
-```bash
-$ sensei lint "feat(auth): add google sign-in option"
-✓ Commit message is valid.
-
-$ sensei lint "feat: update `README` file with markdown"
-✗ Commit message validation failed:
-  - First line contains disallowed markdown formatting (backticks, bold, italic).
-```
-</details>
-
-
-## Advanced Workflow Tools
-
-Git-Sensei provides advanced tools that leverage AI to automate tedious git tasks:
-
-### Auto-Squashing (`sensei squash`)
-Uses AI to analyze your recent commits and automatically generates an interactive rebase plan (`git rebase -i`), picking the most important commits and squashing/fixupping the rest.
-```bash
-sensei squash --base main
-```
-
-### Pull Request Generation (`sensei pr`)
-Reads the diff and commit history of your branch, generates a professional markdown Pull Request description (including Title, Motivation, What changed, and Testing Instructions), and automatically creates the PR using the GitHub CLI (`gh`).
-```bash
-sensei pr --base main
-```
-
-### Extended Smart Context (GitHub Issues)
-If your branch name contains an issue ID (e.g., `feature/123-login`), Git-Sensei will use the GitHub CLI (`gh issue view 123`) to fetch the actual issue title and description, passing it to the AI as context for even better commit messages!
+When pressing `e`, Git-Sensei opens your configured editor (`$VISUAL`, `$EDITOR`, or `git config core.editor`).
 
 ## Project Structure
 
+```text
+src/git_sensei/
+├── main.py             # CLI entrypoint and command handlers
+├── config.py           # TOML configuration loader
+├── constants.py        # Default prompts and branch mappings
+├── providers.py        # LLM provider adapters (HTTP & CLI)
+├── secrets_shield.py   # Pre-flight regex secret scanner
+├── git_utils.py        # Git subprocess wrapper and diff parser
+└── core/
+    ├── editor.py       # External editor integration
+    ├── fallback.py     # Offline heuristic commit generator
+    └── stats.py        # Local usage metrics
 ```
-git_sensei/
-├── main.py             # CLI entrypoint
-├── config.py           # Configuration loader
-├── constants.py        # Shared configuration and mappings
-├── providers.py        # AI provider adapters
-├── secrets_shield.py   # Security regex scanning
-├── git_utils.py        # Git subprocess interactions
-├── core/               # Core business logic
-│   ├── editor.py       # External IDE editor integrations
-│   ├── fallback.py     # Offline heuristic commit generator
-│   └── stats.py        # Usage telemetry tracking
-├── .sensei.toml        # Default configuration
-├── tests/              # Unit tests
-└── docs/               # Documentation
-```
-
-## Changelog
-
-<details>
-<summary>Version history</summary>
-
-### v0.15.1 (2026-07-30)
-
-- **Architecture Refactoring**: Reduced technical debt by breaking down `main.py` into smaller, atomic modules (`core.stats`, `core.editor`, `core.fallback`, `constants`).
-- Implemented **Strategy Pattern** for AI Providers to replace legacy monolithic structures.
-- Added explicit network and subprocess timeouts (15-45s) to prevent the CLI from hanging.
-- Added strict Exception handling and logging mechanisms across file-system and Regex operations.
-- Fixed configuration state bug where `ConfigManager` unintentionally mutated default constants globally.
-- Cleaned up duplicated inline code into shared imports.
-- Re-architected project to enforce 100% compliance with strict CI tools (Ruff & MyPy).
-
-### v0.15.0 (2026-07-29)
-
-- Added `sensei squash` command to automatically generate interactive rebase plans using AI
-- Added `sensei pr` command to generate Pull Request descriptions and create PRs via GitHub CLI (`gh`)
-- Enhanced Smart Context to automatically fetch issue descriptions via GitHub CLI (`gh issue view`)
-
-### v0.14.0 (2026-07-03)
-
-- Added custom prompt configuration (languages, style overrides, file templates) and few-shot log history injection (Milestone 1)
-- Added smart diff truncation and file filtering (lockfiles, binaries, minified assets) supporting smart/head/tail/sample strategies (Milestone 2)
-- Added automatic scope detection for monorepos based on directory structures and custom path globs (Milestone 3)
-- Added interactive refinement loop (re[f]ine) to direct/regenerate message and interactive commit type/emoji selector ([s]elect) (Milestone 4)
-- Added atomic commit splitter (`sensei commit --split`) to group large changes into separate, logical commits (Milestone 5)
-- Added support for custom OpenAI-compatible API endpoints (e.g. DeepSeek, Ollama) and automatic secret redaction with [REDACTED] in diffs (Milestone 6)
-- Added CLI diagnostics (`sensei stats`, `sensei log`, `sensei lint`) and integration configuration for pre-commit frameworks (Milestone 7)
-- Added `sensei amend` command to rewrite the last commit message with AI analysis
-- Added safety checks to prevent accidental rewrites of pushed commits without warning
-- Enhanced Smart Context with expanded issue ID patterns (e.g., `gh-123`, `ado-123`) and auto-uppercasing
-- Published package to PyPI as `git-sensei-ai` and created Homebrew Formula Tap (`brew install git-sensei-ai`)
-- Added local Ollama integration configurations and removed mandatory API key check for local endpoints
-
-### v0.13.0 (2026-07-01)
-
-- Enhanced Secrets Shield with configurable behavior (`block`, `warn`, `ignore`)
-- Added support for custom secret regex patterns via `custom_patterns` configuration
-
-### v0.12.0 (2026-01-03)
-
-- External editor integration for `[e]dit` option (VS Code, PyCharm, Cursor, etc.)
-- Fallback chain for editor detection: $VISUAL → $EDITOR → git config → platform default
-
-### v0.11.1 (2026-01-03)
-
-- Smart Context Detection - auto-detects branch type (feature/ → feat, fix/ → fix)
-- Universal prompt for all AI providers - consistent, detailed commit messages
-- Context info displayed before generating (Type, Issue ID, branch status)
-- Improved issue ID detection from branch names (feature/1-description → #1)
-
-### v0.11.0 (2026-01-03)
-
-- Enhanced `sensei init` wizard with real connection testing
-- Detects existing config and asks before overwriting
-- Shows installation instructions when provider is not found
-
-### v0.10.0 (2025-12-30)
-
-- Extended Smart Context to support GitHub (#123), GitLab, Linear, Azure DevOps, Shortcut
-- Custom prompts per provider in .sensei.toml
-- Improved default prompt for cleaner AI output
-
-### v0.9.0 (2025-12-30)
-
-- Added Secrets Shield - detects API keys, tokens, passwords in diffs
-- Warns before sending sensitive data to AI provider
-
-### v0.8.0 (2025-12-30)
-
-- Added `sensei init` interactive setup wizard
-- Improved CLI help messages with examples
-
-### v0.7.0 (2025-12-30)
-
-- Added `sensei use <provider>` command
-- User config now takes priority over project config
-- Added Claude Code CLI support
-
-### v0.6.0 (2025-12-18)
-
-- Windows support for `.cmd` and `.bat` tools
-- Enforced `sensei commit` as primary command
-
-### v0.5.0 (2025-12-18)
-
-- Universal AI Adapter - works with any CLI tool
-- Added `.sensei.toml` configuration
-- Added `sensei check` and `sensei ls` commands
-
-### v0.4.0 (2025-12-18)
-
-- Smart Context - auto-detect issue IDs from branch names
-
-### v0.3.0 (2025-12-18)
-
-- Inline message editing
-
-### v0.2.0 (2025-12-17)
-
-- Gemini CLI integration
-
-### v0.1.0 (2025-12-09)
-
-- Initial release with heuristic engine
-
-</details>
 
 ## License
 
-MIT
+Released under the [MIT License](LICENSE).
