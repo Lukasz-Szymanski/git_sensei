@@ -21,6 +21,11 @@ from git_sensei.constants import (
 )
 from git_sensei.core.editor import edit_in_editor
 from git_sensei.core.fallback import generate_fallback_message
+from git_sensei.core.reviewer import (
+    REVIEW_SYSTEM_PROMPT,
+    display_review_report,
+    parse_review_findings,
+)
 from git_sensei.core.stats import (
     clear_stats,
     load_stats,
@@ -335,7 +340,8 @@ def commit(
     dry_run: bool = typer.Option(False, "-d", "--dry-run", help="Preview without committing."),
     emoji: Optional[bool] = typer.Option(None, "--emoji/--no-emoji", help="Enable/disable Gitmoji support."),
     raw: bool = typer.Option(False, "--raw", help="Output raw commit message to stdout and exit."),
-    split: bool = typer.Option(False, "--split", help="Split staged changes into separate atomic commits.")
+    split: bool = typer.Option(False, "--split", help="Split staged changes into separate atomic commits."),
+    review: bool = typer.Option(False, "--review", "-r", help="Run AI code review on staged changes before committing.")
 ):
     """Generate a commit message using AI."""
     if not shutil.which("git"):
@@ -380,6 +386,24 @@ def commit(
             else:
                 if secrets_action == "block":
                     sys.exit(1)
+
+    # Pre-commit review flow if requested
+    if review:
+        if not raw:
+            typer.echo("Running AI Code Review on staged changes...")
+        secrets_cfg = config_mgr.config.get("secrets", {})
+        diff_redacted = redact_secrets(diff, custom_patterns=secrets_cfg.get("custom_patterns"))
+        ai = AIProvider(provider_name, provider_cfg)
+        review_raw = ai.execute(diff_redacted, REVIEW_SYSTEM_PROMPT)
+        if review_raw:
+            parsed_rev = parse_review_findings(review_raw)
+            display_review_report(parsed_rev)
+            if parsed_rev.get("has_critical") and not raw:
+                if not typer.confirm("Critical issues detected! Are you sure you want to proceed with commit?", default=False):
+                    typer.secho("Commit aborted.", fg=typer.colors.RED)
+                    sys.exit(1)
+        elif not raw:
+            typer.secho("Review note: AI provider returned no response for review.", fg=typer.colors.YELLOW)
 
     # Split flow
     if split:
@@ -1189,6 +1213,58 @@ def log_cmd(
         typer.echo("──────────────────────────")
         valid_pct = round((valid_count / total_count) * 100)
         typer.echo(f"Conventional Commits compliance: {valid_count}/{total_count} ({valid_pct}%)")
+
+
+@app.command(name="review")
+def review_cmd(
+    provider: str = typer.Option(None, "-p", "--provider", help="AI provider to use."),
+    strict: bool = typer.Option(False, "--strict", help="Exit with non-zero code if critical issues are found (ideal for CI)."),
+    diff_file: Optional[str] = typer.Option(None, "--diff-file", help="Path to diff file instead of staged git changes.")
+):
+    """Run an AI code review on staged changes or a diff file."""
+    if not shutil.which("git") and not diff_file:
+        typer.secho("Git not found!", fg=typer.colors.RED)
+        sys.exit(1)
+
+    provider_name = provider or config_mgr.get_default_provider()
+    provider_cfg = config_mgr.get_provider_config(provider_name)
+    if not provider_cfg:
+        typer.secho(f"Provider '{provider_name}' not found.", fg=typer.colors.RED)
+        sys.exit(1)
+
+    if diff_file:
+        try:
+            with open(diff_file, "r", encoding="utf-8") as f:
+                diff = f.read()
+            truncation_meta = {}
+        except Exception as e:
+            typer.secho(f"Error reading diff file: {e}", fg=typer.colors.RED)
+            sys.exit(1)
+    else:
+        diff, truncation_meta = get_staged_diff_filtered(config_mgr.config)
+        if not diff:
+            typer.secho("No staged changes to review.", fg=typer.colors.YELLOW)
+            sys.exit(0)
+
+    display_truncation_metadata(truncation_meta, raw=False)
+
+    secrets_cfg = config_mgr.config.get("secrets", {})
+    diff_redacted = redact_secrets(diff, custom_patterns=secrets_cfg.get("custom_patterns"))
+
+    typer.echo(f"Reviewing changes with [bold cyan]{provider_name}[/bold cyan]...")
+    ai = AIProvider(provider_name, provider_cfg)
+    raw_response = ai.execute(diff_redacted, REVIEW_SYSTEM_PROMPT)
+
+    if not raw_response:
+        typer.secho("Error: No review response received from AI provider.", fg=typer.colors.RED)
+        sys.exit(1)
+
+    parsed = parse_review_findings(raw_response)
+    display_review_report(parsed)
+
+    if strict and parsed.get("has_critical"):
+        typer.secho("Strict mode: Critical review issues detected! Exiting with error.", fg=typer.colors.RED)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
