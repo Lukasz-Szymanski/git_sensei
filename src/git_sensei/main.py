@@ -19,6 +19,10 @@ from git_sensei.constants import (
     PR_MAX_DIFF_LENGTH,
     REVIEW_CHOICES,
 )
+from git_sensei.core.conflict_resolver import (
+    get_conflicted_files,
+    resolve_file_conflict,
+)
 from git_sensei.core.editor import edit_in_editor
 from git_sensei.core.fallback import generate_fallback_message
 from git_sensei.core.reviewer import (
@@ -1265,6 +1269,75 @@ def review_cmd(
     if strict and parsed.get("has_critical"):
         typer.secho("Strict mode: Critical review issues detected! Exiting with error.", fg=typer.colors.RED)
         sys.exit(1)
+
+
+@app.command(name="conflict")
+def conflict_cmd(
+    file: Optional[str] = typer.Argument(None, help="Specific conflicted file to resolve. If omitted, checks all conflicted files."),
+    provider: str = typer.Option(None, "-p", "--provider", help="AI provider to use."),
+    auto_apply: bool = typer.Option(False, "--apply", "-y", help="Automatically save resolution without asking confirmation.")
+):
+    """Resolve git merge/rebase conflicts with AI."""
+    if not shutil.which("git"):
+        typer.secho("Git not found!", fg=typer.colors.RED)
+        sys.exit(1)
+
+    provider_name = provider or config_mgr.get_default_provider()
+    provider_cfg = config_mgr.get_provider_config(provider_name)
+    if not provider_cfg:
+        typer.secho(f"Provider '{provider_name}' not found.", fg=typer.colors.RED)
+        sys.exit(1)
+
+    files_to_resolve = [file] if file else get_conflicted_files()
+    if not files_to_resolve:
+        typer.secho("No git merge conflicts found in repository! 🎉", fg=typer.colors.GREEN)
+        return
+
+    typer.echo(f"Resolving conflicts using [bold cyan]{provider_name}[/bold cyan] for {len(files_to_resolve)} file(s)...")
+    ai = AIProvider(provider_name, provider_cfg)
+
+    for target_path in files_to_resolve:
+        typer.echo(f"\nAnalyzing [cyan]{target_path}[/cyan]...")
+        res = resolve_file_conflict(target_path, ai)
+        if not res.get("success"):
+            typer.secho(f"Failed to resolve {target_path}: {res.get('error')}", fg=typer.colors.RED)
+            continue
+
+        if res.get("has_remaining_markers"):
+            typer.secho("Warning: AI resolution still contains some conflict markers. Please inspect closely.", fg=typer.colors.YELLOW)
+
+        typer.secho(f"Resolved {res['conflicts_count']} conflict block(s) in {target_path}.", fg=typer.colors.GREEN)
+
+        should_write = auto_apply
+        if not should_write:
+            choice = typer.prompt(
+                "Apply resolution? ([y]es / [n]o / [e]dit in editor / [d]iff preview)",
+                default="y"
+            ).strip().lower()
+
+            if choice in ("d", "diff"):
+                import difflib
+                orig_lines = res["original_content"].splitlines(keepends=True)
+                new_lines = res["resolved_content"].splitlines(keepends=True)
+                diff = "".join(difflib.unified_diff(orig_lines, new_lines, fromfile=f"{target_path} (original)", tofile=f"{target_path} (resolved)"))
+                typer.echo(diff)
+                choice = typer.prompt("Apply resolution now? ([y]es / [n]o / [e]dit)", default="y").strip().lower()
+
+            if choice in ("e", "edit"):
+                edited = edit_in_editor(res["resolved_content"])
+                if edited:
+                    res["resolved_content"] = edited
+                    should_write = True
+            elif choice in ("y", "yes"):
+                should_write = True
+
+        if should_write:
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(res["resolved_content"])
+            subprocess.run(["git", "add", target_path], check=False)
+            typer.secho(f"✓ Saved resolution and staged: {target_path}", fg=typer.colors.GREEN)
+        else:
+            typer.secho(f"Skipped saving {target_path}.", fg=typer.colors.YELLOW)
 
 
 if __name__ == "__main__":

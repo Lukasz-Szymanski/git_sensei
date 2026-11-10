@@ -48,6 +48,8 @@ sensei commit    # Generate and review commit message
 | `sensei use <provider>` | Set the default provider |
 | `sensei ls` | List configured providers |
 | `sensei check [provider]` | Test connection to a provider |
+| `sensei review` | Run AI code review on staged changes (`--strict` for CI) |
+| `sensei conflict [file]` | Automatically resolve git merge/rebase conflicts with AI |
 | `sensei lint <msg>` | Validate a commit message against Conventional Commits rules |
 | `sensei log` | View recent commit history with format compliance indicators |
 | `sensei stats` | Show local commit generation statistics |
