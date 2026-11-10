@@ -86,7 +86,7 @@ To lint commit messages with [pre-commit](https://pre-commit.com/), add this to 
 ```yaml
 repos:
   - repo: https://github.com/Lukasz-Szymanski/git_sensei
-    rev: v0.15.1
+    rev: v0.16.0
     hooks:
       - id: git-sensei-lint
 ```
