@@ -9,7 +9,7 @@ description = "AI-powered git commit helper with smart truncation, monorepo dete
 readme = "README.md"
 authors = [{ name = "Lukasz Szymanski" }]
 license = { text = "MIT" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "typer>=0.9.0",
     "tomli>=2.0.1; python_version < '3.11'",
