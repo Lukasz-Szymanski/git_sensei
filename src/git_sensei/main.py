@@ -19,6 +19,14 @@ from git_sensei.constants import (
     PR_MAX_DIFF_LENGTH,
     REVIEW_CHOICES,
 )
+from git_sensei.core.changelog import (
+    build_changelog_prompt,
+    categorize_commits,
+    generate_local_changelog,
+    get_commits_since,
+    get_latest_git_tag,
+    update_changelog_file,
+)
 from git_sensei.core.conflict_resolver import (
     get_conflicted_files,
     resolve_file_conflict,
@@ -1338,6 +1346,78 @@ def conflict_cmd(
             typer.secho(f"✓ Saved resolution and staged: {target_path}", fg=typer.colors.GREEN)
         else:
             typer.secho(f"Skipped saving {target_path}.", fg=typer.colors.YELLOW)
+
+
+@app.command(name="changelog")
+def changelog_cmd(
+    version: Optional[str] = typer.Option(None, "-v", "--version", help="Release version (defaults to version in pyproject.toml)."),
+    tag: Optional[str] = typer.Option(None, "-t", "--tag", help="Previous git tag to compare from (defaults to latest tag)."),
+    output: Optional[str] = typer.Option(None, "-o", "--output", help="Write to file (e.g. CHANGELOG.md)."),
+    write: bool = typer.Option(False, "-w", "--write", help="Automatically prepend to CHANGELOG.md in current directory."),
+    provider: str = typer.Option(None, "-p", "--provider", help="AI provider to use (falls back to local grouping if unavailable).")
+):
+    """Generate release notes / changelog from git commits."""
+    if not shutil.which("git"):
+        typer.secho("Git not found!", fg=typer.colors.RED)
+        sys.exit(1)
+
+    # Determine version
+    target_version = version
+    if not target_version:
+        import tomllib
+        if os.path.exists("pyproject.toml"):
+            try:
+                with open("pyproject.toml", "rb") as f:
+                    pyproj = tomllib.load(f)
+                    target_version = pyproj.get("project", {}).get("version")
+            except Exception:
+                pass
+    if not target_version:
+        target_version = "vNext"
+    elif not target_version.startswith("v") and target_version[0].isdigit():
+        target_version = f"v{target_version}"
+
+    # Determine previous tag
+    prev_tag = tag or get_latest_git_tag()
+    commits = get_commits_since(prev_tag)
+
+    if not commits:
+        typer.secho(f"No commits found since {prev_tag or 'initial commit'}.", fg=typer.colors.YELLOW)
+        return
+
+    typer.echo(f"Found {len(commits)} commit(s) since {prev_tag or 'start'}. Generating changelog for [bold cyan]{target_version}[/bold cyan]...")
+
+    provider_name = provider or config_mgr.get_default_provider()
+    provider_cfg = config_mgr.get_provider_config(provider_name)
+    changelog_md = ""
+
+    if provider_cfg:
+        typer.echo(f"Summarizing release with [bold cyan]{provider_name}[/bold cyan]...")
+        ai = AIProvider(provider_name, provider_cfg)
+        prompt = build_changelog_prompt(target_version, prev_tag, commits)
+        raw_res = ai.execute("", prompt)
+        if raw_res:
+            from git_sensei.core.conflict_resolver import clean_resolved_content
+            changelog_md = clean_resolved_content(raw_res)
+
+    if not changelog_md:
+        # Fallback to local categorization
+        typer.echo("Using local structured categorization...")
+        cats = categorize_commits(commits)
+        changelog_md = generate_local_changelog(target_version, cats)
+
+    typer.echo("\n" + "=" * 50 + "\n")
+    typer.echo(changelog_md)
+    typer.echo("\n" + "=" * 50 + "\n")
+
+    target_file = output or ("CHANGELOG.md" if write else None)
+    if target_file:
+        update_changelog_file(target_file, changelog_md)
+        typer.secho(f"✓ Changelog successfully written to {target_file}", fg=typer.colors.GREEN)
+    elif not write:
+        if typer.confirm("Would you like to prepend this release to CHANGELOG.md?", default=False):
+            update_changelog_file("CHANGELOG.md", changelog_md)
+            typer.secho("✓ Changelog successfully written to CHANGELOG.md", fg=typer.colors.GREEN)
 
 
 if __name__ == "__main__":

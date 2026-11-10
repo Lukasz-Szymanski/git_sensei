@@ -50,6 +50,7 @@ sensei commit    # Generate and review commit message
 | `sensei check [provider]` | Test connection to a provider |
 | `sensei review` | Run AI code review on staged changes (`--strict` for CI) |
 | `sensei conflict [file]` | Automatically resolve git merge/rebase conflicts with AI |
+| `sensei changelog` | Generate release notes / changelog from git history (`-w` to update CHANGELOG.md) |
 | `sensei lint <msg>` | Validate a commit message against Conventional Commits rules |
 | `sensei log` | View recent commit history with format compliance indicators |
 | `sensei stats` | Show local commit generation statistics |
@@ -63,6 +64,19 @@ Run `sensei` automatically whenever you invoke `git commit`:
 
 ```bash
 sensei install-hook
+```
+
+### Lazygit Integration
+
+To generate commit messages with Git-Sensei directly inside [lazygit](https://github.com/jesseduffield/lazygit), add this custom command to your `~/.config/lazygit/config.yml`:
+
+```yaml
+customCommands:
+  - key: '<c-a>'
+    description: 'Generate commit message with Git-Sensei'
+    context: 'files'
+    command: 'sensei commit'
+    subprocess: true
 ```
 
 ### Pre-commit Framework
